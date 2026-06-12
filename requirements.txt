@@ -1,0 +1,54 @@
+# ==========================================
+# 🌐 CORE WEB FRAMEWORK
+# ==========================================
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+pydantic-settings
+jinja2
+python-dotenv
+
+# ==========================================
+# 🧠 AI, RAG & VECTOR DATABASE
+# ==========================================
+openai
+faiss-cpu
+rank_bm25
+scikit-learn        # Added for additional fuzzy matching utilities
+scipy
+
+# ==========================================
+# ⚠️ CRITICAL C++ COMPATIBILITY PINS
+# ==========================================
+# Do not unpin NumPy or remove these! They are required by your Reranker.
+numpy==1.26.4
+sentence-transformers>=3.0.0
+torch>=2.1.0
+transformers>=4.41.0
+
+# ==========================================
+# 📊 DATA PROCESSING & EXCEL (BOQ)
+# ==========================================
+pandas
+openpyxl
+xlrd
+
+# ==========================================
+# 📄 DOCUMENT PARSERS & EXPORTERS
+# ==========================================
+PyMuPDF
+pdfplumber
+python-docx
+ezdxf
+fpdf2     
+          # CRITICAL: Modern PDF generation (replaces legacy fpdf)
+
+# ==========================================
+# 🧮 TABLE EXTRACTION & UTILITIES
+# ==========================================
+# Note: Camelot requires Ghostscript installed on your OS (which you just did!)
+camelot-py[cv]
+opencv-python
+langchain-text-splitters
+aiofiles

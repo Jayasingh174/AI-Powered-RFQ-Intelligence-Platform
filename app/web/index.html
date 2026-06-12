@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG AI System</title>
+    <link rel="stylesheet" href="/static/style.css">
+        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    
+</head>
+<body>
+
+    <div class="app-container">
+        <aside class="sidebar">
+            <h2>📄 Documents</h2>
+
+            <div class="drop-zone" id="dropZone">
+                <div class="drop-zone-content">
+                    <h3>📂 Upload RFQs</h3>
+                    <p>Drag & drop or click to browse</p>
+                </div>
+                <input type="file" id="fileInput" multiple aria-label="Upload RFQ documents">
+                
+                <div class="upload-status">
+                    <p id="fileName"></p>
+                    <div class="progress-bar-container">
+                        <div id="progress" class="progress-bar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="document-list-container">
+                <h3>Uploaded Files</h3>
+                <div class="documents" id="documents">
+                    </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="chat-header">
+                🤖 RAG AI System
+            </header>
+
+            <div class="chat-container" id="chat">
+
+    <div class="message system">
+        Welcome! Upload your RFQ documents in the sidebar, then ask me anything about them.
+    </div>
+
+    </div>
+
+    <div class="input-area">
+
+        <input 
+            type="text"
+            id="question"
+            placeholder="Ask a question about your RFQ..."
+            autocomplete="off"
+        />
+
+        <button id="sendBtn" title="Send message">
+
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+
+        </button>
+
+    </div>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

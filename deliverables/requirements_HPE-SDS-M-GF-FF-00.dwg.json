@@ -1,0 +1,14 @@
+{
+    "status": "success",
+    "source_file": "HPE-SDS-M-GF-FF-00.dwg",
+    "project": "Unknown Project",
+    "items": [],
+    "conflicts": {
+        "total_entities_checked": 0,
+        "conflicts_found": 0,
+        "conflict_details": [],
+        "full_matrix": []
+    },
+    "message": "Vectors stored, requirements extracted, and conflicts analyzed.",
+    "cad_summary": "DWG contains layers: X93FP-01$0$A-ANNO-DIMS, ARCH, HG TEXT 600 MM, RAM-CXX-P-EQUIP-TXT, FF WET, HGEC-SPRINKLER LINE, HGEC-PENDENT SPRINKLER HEAD, TM-M-HVAC-FRESH, 0.CWS-IR, FIRE HOUSE CABINET, SN-SHW-thin, M-DETL-PEN1, RAM-CT-FF-EQPT-TXT, FIRE EXISTING NETWORK, SN-SHW, H-CHWS-PIPE, TM-M-FF-PIPESS, F-ANNO-NOTE, MOT-FF-PIPES-TXT, 0.HWR, FE1 _ FE2, TM-M-FF-PIPESS-thin, HGEC-UPRIGHT SPRINKLER HEAD; entity types: MLINE, MTEXT, MULTILEADER, INSERT, LINE, SPLINE, CIRCLE, LWPOLYLINE, TEXT. Blocks: FE1-DRY CHEMICAL FIRE EXTINGUISHER 6 K.G, 806-012, KA_CHECK_VALVE - CV-2021611-FF_L01_PART_4_4, A$C6b5c7859, HGEC-PEN-SPH, A$Cbbb3b57f, MODIFED FIRE HOUSE CABINET, HGEC-UPRIGHT SPRINGLER HEAD, FE2_CO2 FIRE EXTINGUISHER 6 K.G, 801-015x, A$C007779f0, KA_FLOW_SWITCH - 200 mm FLOW SWITCH-1863063-FF_L01_PART_4_4, KA_BUTTERFLY_VALVE - BFV-2626345-FF_L01_PART_4_4, A$Cbfd8deb8, A$C220bffb0."
+}

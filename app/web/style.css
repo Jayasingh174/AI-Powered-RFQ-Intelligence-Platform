@@ -1,0 +1,522 @@
+/* =========================================
+   CORE STYLES
+   ========================================= */
+:root {
+    --primary-color: #007bff;
+    --bg-color: #f8f9fa;
+    --sidebar-bg: #ffffff;
+    --border-color: #dee2e6;
+    --text-main: #333;
+    --text-muted: #6c757d;
+    --ai-bubble: #e9ecef;
+    --user-bubble: #007bff;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    height: 100vh;
+    display: flex;
+}
+
+.app-container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+/* =========================================
+   SIDEBAR & UPLOAD ZONE
+   ========================================= */
+.sidebar {
+    width: 320px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border-color);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar h2 {
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+}
+
+.drop-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    padding: 30px 10px;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--primary-color);
+    background: #f0f7ff;
+}
+
+.drop-zone-content h3 {
+    font-size: 1rem;
+    color: var(--primary-color);
+}
+
+.upload-status {
+    margin-top: 15px;
+}
+
+.progress-bar-container {
+    width: 100%;
+    background: #eee;
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    width: 0%;
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 0.4s ease;
+}
+
+.document-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: #fdfdfd;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+.delete-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    opacity: 0.6;
+}
+
+.delete-btn:hover { opacity: 1; }
+
+/* =========================================
+   MAIN CHAT AREA
+   ========================================= */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: white;
+}
+
+.chat-header {
+    padding: 15px 25px;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.chat-container {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.message {
+    max-width: 80%;
+    padding: 12px 18px;
+    border-radius: 18px;
+    line-height: 1.5;
+    font-size: 0.95rem;
+}
+
+.message.user {
+    align-self: flex-end;
+    background: var(--user-bubble);
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.message.ai {
+    align-self: flex-start;
+    background: var(--ai-bubble);
+    color: var(--text-main);
+    border-bottom-left-radius: 4px;
+}
+
+.message.system-alert {
+    align-self: center;
+    max-width: 95%;
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+/* =========================================
+   REQUIREMENT MATRIX TABLE
+   ========================================= */
+.table-wrapper {
+    margin-top: 15px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+
+th, td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+thead {
+    background-color: #f1f3f5;
+    font-weight: bold;
+}
+
+tr:last-child td { border-bottom: none; }
+
+.action-btn {
+    padding: 8px 16px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.action-btn:hover { background: #0056b3; }
+
+/* =========================================
+   INPUT AREA
+   ========================================= */
+.input-area {
+    padding: 20px;
+    display: flex;
+    gap: 10px;
+    border-top: 1px solid var(--border-color);
+}
+
+#question {
+    flex: 1;
+    padding: 12px 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 25px;
+    outline: none;
+}
+
+#question:focus { border-color: var(--primary-color); }
+
+#sendBtn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+#sendBtn:hover { transform: scale(1.05); }/* =========================================
+   CORE STYLES
+   ========================================= */
+:root {
+    --primary-color: #007bff;
+    --bg-color: #f8f9fa;
+    --sidebar-bg: #ffffff;
+    --border-color: #dee2e6;
+    --text-main: #333;
+    --text-muted: #6c757d;
+    --ai-bubble: #e9ecef;
+    --user-bubble: #007bff;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    height: 100vh;
+    display: flex;
+}
+
+.app-container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+/* =========================================
+   SIDEBAR & UPLOAD ZONE
+   ========================================= */
+.sidebar {
+    width: 320px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border-color);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar h2 {
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+}
+
+.drop-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    padding: 30px 10px;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--primary-color);
+    background: #f0f7ff;
+}
+
+.drop-zone-content h3 {
+    font-size: 1rem;
+    color: var(--primary-color);
+}
+
+.upload-status {
+    margin-top: 15px;
+}
+
+.progress-bar-container {
+    width: 100%;
+    background: #eee;
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    width: 0%;
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 0.4s ease;
+}
+
+.document-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: #fdfdfd;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+.delete-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    opacity: 0.6;
+}
+
+.delete-btn:hover { opacity: 1; }
+
+/* =========================================
+   MAIN CHAT AREA
+   ========================================= */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: white;
+}
+
+.chat-header {
+    padding: 15px 25px;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.chat-container {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.message {
+    max-width: 80%;
+    padding: 12px 18px;
+    border-radius: 18px;
+    line-height: 1.5;
+    font-size: 0.95rem;
+}
+
+.message.user {
+    align-self: flex-end;
+    background: var(--user-bubble);
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.message.ai {
+    align-self: flex-start;
+    background: var(--ai-bubble);
+    color: var(--text-main);
+    border-bottom-left-radius: 4px;
+}
+
+.message.system-alert {
+    align-self: center;
+    max-width: 95%;
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+/* =========================================
+   REQUIREMENT MATRIX TABLE
+   ========================================= */
+.table-wrapper {
+    margin-top: 15px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+
+th, td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+thead {
+    background-color: #f1f3f5;
+    font-weight: bold;
+}
+
+tr:last-child td { border-bottom: none; }
+
+.action-btn {
+    padding: 8px 16px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.action-btn:hover { background: #0056b3; }
+
+/* =========================================
+   INPUT AREA
+   ========================================= */
+.input-area {
+    padding: 20px;
+    display: flex;
+    gap: 10px;
+    border-top: 1px solid var(--border-color);
+}
+
+#question {
+    flex: 1;
+    padding: 12px 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 25px;
+    outline: none;
+}
+
+#question:focus { border-color: var(--primary-color); }
+
+#sendBtn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+#sendBtn:hover { transform: scale(1.05); }
+
+/* Table Styles for AI Chat */
+.message.ai table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 15px 0;
+    font-size: 0.9em;
+    background-color: #ffffff;
+}
+
+.message.ai th, 
+.message.ai td {
+    border: 1px solid #dddddd;
+    padding: 10px 12px;
+    text-align: left;
+}
+
+.message.ai th {
+    background-color: #f4f6f8;
+    font-weight: bold;
+    color: #333;
+}
+
+.message.ai tr:nth-child(even) {
+    background-color: #fdfdfd;
+}
+/* --- Fix for Overflowing Text --- */
+
+/* 1. Force long text strings to break instead of overflowing */
+.message {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    max-width: 100%;
+}

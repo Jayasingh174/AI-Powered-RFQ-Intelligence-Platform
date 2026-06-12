@@ -1,0 +1,13 @@
+{
+    "status": "success",
+    "source_file": "Reading RFQ.pdf",
+    "project": "Unknown Project",
+    "items": [],
+    "conflicts": {
+        "total_entities_checked": 0,
+        "conflicts_found": 0,
+        "conflict_details": [],
+        "full_matrix": []
+    },
+    "message": "Vectors stored, requirements extracted, and conflicts analyzed."
+}
