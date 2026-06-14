@@ -1,16 +1,13 @@
 
----
-
-````md
 # 🚀 RFQ AI Optimizer
 
-An intelligent AI-powered system that automates the analysis of complex **Request for Quotation (RFQ)** documents using a **Retrieval-Augmented Generation (RAG)** pipeline.
+An intelligent AI-powered system that automates the analysis of complex *Request for Quotation (RFQ)* documents using a *Retrieval-Augmented Generation (RAG)*      pipeline.
 
 It eliminates manual effort by extracting insights, detecting inconsistencies, and answering queries across multiple document formats—all in seconds.
 
 ---
 
-## ✨ Key Features
+# ✨ Key Features
 
 - **📄 Multi-Format Support**  
   Processes PDFs, Excel BOQs (Bill of Quantities), and AutoCAD files (.DWG/.DXF).
