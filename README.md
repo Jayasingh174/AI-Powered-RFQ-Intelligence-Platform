@@ -1,5 +1,5 @@
 
-# 🚀 RFQ AI Optimizer
+# 🚀 AI-Powered RFQ Intelligence Platform
 
 An intelligent AI-powered system that automates the analysis of complex *Request for Quotation (RFQ)* documents using a *Retrieval-Augmented Generation (RAG)*      pipeline.
 
