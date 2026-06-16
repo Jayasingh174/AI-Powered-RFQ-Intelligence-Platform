@@ -174,8 +174,7 @@ RFQ-AI-Optimizer/
 
 ## 👩‍💻 Author
 
-**Jaya Rajput**
+**Jaya Singh**
 Full Stack Developer | AI/ML Enthusiast
 
---"# RAG-AI-Optimizer" 
-"# RAG-AI-Optimizer" 
+
