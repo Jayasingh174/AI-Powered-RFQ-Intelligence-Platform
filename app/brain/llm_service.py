@@ -33,7 +33,7 @@ async def ask_llm(question: str, context: str = "", mode: str = "qa"):
         system_prompt = (
             "You are an intelligent Document Analysis Assistant powered by RAG.\n"
             "Answer the user's question strictly using the provided context. "
-            "If the exact information is missing from the context, state exactly: 'Information not available in the documents.' Do not guess.\n\n"
+            "If the exact information is missing from the context, state exactly: 'Information not available in the documents.' Do not guess or assume.\n\n"
             "*** CRITICAL FORMATTING RULES ***\n"
             "1. FOR TABLES: If summarizing data, comparing documents, or listing items, use standard Markdown tables. DO NOT wrap Markdown tables inside code blocks or triple backticks.\n"
             "2. FOR CSV/CODE: If the user explicitly asks for a CSV file, raw code, or raw data, you MUST wrap the dataset inside a markdown code block using triple backticks (e.g., ```csv )."
