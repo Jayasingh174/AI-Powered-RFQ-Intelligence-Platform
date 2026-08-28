@@ -3,7 +3,7 @@ import logging
 import asyncio
 from typing import List
 from openai import AsyncOpenAI
-from app.config import OPENAI_API_KEY, EMBEDDING_MODEL
+from app.config import OPENAI_API_KEY, EMBEDDING_MODEL, EMBEDDING_DIMENSION, MAX_RETRIES
 
 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 logger = logging.getLogger(__name__)
@@ -11,10 +11,17 @@ logger = logging.getLogger(__name__)
 # ------------------------------
 # Utility: Retry Wrapper (FIXED)
 # ------------------------------
-async def with_retry(func, *args, retries=3, delay=1, **kwargs):
+async def with_retry(func, *args, retries=MAX_RETRIES, delay=1, **kwargs):
     """
     Safely retries an async function by creating a fresh coroutine
     on every attempt.
+
+    🔧 LOGIC FIX: 'retries' used to default to a hardcoded 3, disconnected
+    from app.config.MAX_RETRIES (which the rest of the app, e.g.
+    llm_service.py, already treats as the single source of truth for
+    retry counts). It happened to match by coincidence since MAX_RETRIES
+    also defaults to 3 — but changing MAX_RETRIES in the environment had
+    no effect here. Now it does.
     """
     for attempt in range(retries):
         try:
@@ -63,16 +70,24 @@ async def embed_texts(
                 if cleaned_batch[idx] and getattr(data, "embedding", None):
                     embeddings_list.append(np.array(data.embedding, dtype="float32"))
                 else:
-                    # Determine dimension safely, falling back to previous embeddings or a default
+                    # Determine dimension safely, falling back to previous embeddings,
+                    # then to the configured EMBEDDING_DIMENSION (was hardcoded 3072 —
+                    # see fix note below for why that broke np.vstack downstream).
                     if getattr(response.data[0], "embedding", None):
                         dim = len(response.data[0].embedding)
                     else:
-                        dim = len(embeddings_list[0]) if embeddings_list else 3072
+                        dim = len(embeddings_list[0]) if embeddings_list else EMBEDDING_DIMENSION
                     embeddings_list.append(np.zeros(dim, dtype="float32"))
 
         except Exception as e:
             logger.exception(f"Embedding batch failed at index {i}: {e}")
-            dim = len(embeddings_list[0]) if embeddings_list else 3072 # Fallback to your model's dim
+            # 🔧 LOGIC FIX: was hardcoded to 3072. If EMBEDDING_MODEL is ever
+            # changed to a model with a different vector size, a fallback
+            # batch built at 3072 dims while earlier batches succeeded at
+            # the real (different) dimension causes np.vstack() below to
+            # raise ValueError on shape mismatch — crashing the whole call
+            # instead of degrading gracefully as intended.
+            dim = len(embeddings_list[0]) if embeddings_list else EMBEDDING_DIMENSION
             for _ in original_batch:
                 embeddings_list.append(np.zeros(dim, dtype="float32"))
 
