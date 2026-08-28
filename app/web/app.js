@@ -59,7 +59,6 @@ async function handleFiles(files) {
             ${[...files].map(f => "• " + f.name).join("<br>")}
         `;
         
-        // Log the backend response just in case you need to debug extraction data
         console.log("Extraction Data:", responseData);
 
     } catch (error) {
@@ -78,7 +77,6 @@ async function handleFiles(files) {
 
 async function uploadBundle(files) {
     const formData = new FormData();
-    // Generalized the project name
     formData.append("project_name", "Document Analysis " + new Date().toLocaleTimeString());
     
     for (let i = 0; i < files.length; i++) {
@@ -99,7 +97,7 @@ async function uploadBundle(files) {
 
 
 /* =========================================
-   CHAT FUNCTIONALITY
+   AGENT CHAT FUNCTIONALITY
    ========================================= */
 
 function createMessageElement(type) {
@@ -123,13 +121,14 @@ async function askAI() {
     questionInput.value = "";
     
     const aiDiv = createMessageElement("ai thinking");
-    aiDiv.textContent = "Thinking...";
+    aiDiv.textContent = "Agent is reasoning..."; // Updated UX copy
 
     try {
-        const response = await fetch("/query/ask", {
+        // 🚀 Hit the new Multi-Agent Endpoint
+        const response = await fetch("/api/v1/agents/agent", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question })
+            body: JSON.stringify({ query: question }) // Mapped to the new Pydantic schema
         });
 
         if (!response.ok) throw new Error("Server error");
@@ -139,26 +138,21 @@ async function askAI() {
 
         // Use Marked.js to parse Markdown into beautiful HTML
         marked.setOptions({ breaks: true });
+        
+        // The new Agent response model returns 'answer'
         const formattedAnswer = data.answer ? marked.parse(data.answer) : "No answer provided.";
 
-        // Format the answer with sources
         aiDiv.innerHTML = `
             <div class="markdown-body">
                 ${formattedAnswer}
             </div>
-            ${data.sources && data.sources.length > 0 
-                ? `<div class="sources" style="margin-top:15px; font-size:0.85em; color:#666; border-top: 1px solid #eee; padding-top: 8px;">
-                    <strong>Sources:</strong> ${data.sources.join(", ")}
-                </div>` 
-                : ""
-            }
         `;
 
     } catch (error) {
         console.error("Chat Error:", error);
         aiDiv.classList.remove("thinking");
         aiDiv.classList.add("error");
-        aiDiv.textContent = "⚠️ Error: Could not connect to service.";
+        aiDiv.textContent = "⚠️ Error: Could not connect to the Agent service.";
     } finally {
         // 3. Unlock UI (Crucial)
         questionInput.disabled = false;
@@ -188,16 +182,81 @@ async function loadDocuments() {
             div.className = "document-item";
             div.innerHTML = `<span class="doc-name">${doc}</span>`;
             
+            // Container for buttons
+            const actionsDiv = document.createElement("div");
+            actionsDiv.className = "doc-actions";
+            
+            // New Analyze Button
+            const analyzeBtn = document.createElement("button");
+            analyzeBtn.className = "analyze-btn";
+            analyzeBtn.innerHTML = "⚡ Analyze";
+            analyzeBtn.style.marginRight = "8px"; // Quick inline styling
+            analyzeBtn.onclick = () => triggerFullAnalysis(doc);
+            
+            // Delete Button
             const delBtn = document.createElement("button");
             delBtn.className = "delete-btn";
             delBtn.innerHTML = "🗑️";
             delBtn.onclick = () => deleteDocument(doc);
 
-            div.appendChild(delBtn);
+            actionsDiv.appendChild(analyzeBtn);
+            actionsDiv.appendChild(delBtn);
+            
+            div.appendChild(actionsDiv);
             documentsContainer.appendChild(div);
         });
     } catch (error) {
         documentsContainer.innerHTML = "<p class='error-state'>Error loading documents.</p>";
+    }
+}
+
+async function triggerFullAnalysis(filename) {
+    // 1. Show processing state
+    const aiDiv = createMessageElement("ai thinking");
+    aiDiv.innerHTML = `Running Multi-Agent Analysis on <b>${filename}</b>...<br><small>This may take a minute.</small>`;
+
+    try {
+        // 2. Call the dedicated sequential pipeline endpoint
+        const response = await fetch("/api/v1/agents/analyze-rag", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ file_path: `uploads/${filename}` }) 
+        });
+
+        if (!response.ok) throw new Error("Server error");
+        
+        const result = await response.json();
+        aiDiv.classList.remove("thinking");
+
+        // 3. Format the heavy JSON payload into a readable report
+        if (result.status === "success") {
+            const data = result.data;
+            aiDiv.innerHTML = `
+                <div class="markdown-body">
+                    <h3>📄 Executive Summary: ${filename}</h3>
+                    <p>${data.summary.summary}</p>
+                    
+                    <h4>🔑 Key Points</h4>
+                    <ul>${data.summary.key_points.map(p => `<li>${p}</li>`).join('')}</ul>
+                    
+                    <h4>⚠️ Risk Assessment</h4>
+                    <p><b>Overall Risk Level:</b> ${data.risk.risk_level}</p>
+                    <ul>${data.risk.risks.map(r => `<li>${r}</li>`).join('')}</ul>
+                    
+                    <h4>📦 Bill of Quantities (${data.boq.boq_items.length} items)</h4>
+                    <p><i>Ask the chat for specific BOQ calculations.</i></p>
+                </div>
+            `;
+        } else {
+            aiDiv.classList.add("error");
+            aiDiv.textContent = "Analysis failed: " + result.message;
+        }
+
+    } catch (error) {
+        console.error("Analysis Error:", error);
+        aiDiv.classList.remove("thinking");
+        aiDiv.classList.add("error");
+        aiDiv.textContent = "⚠️ Error: Could not complete document analysis.";
     }
 }
 
