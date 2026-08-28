@@ -7,6 +7,17 @@ import numpy as np
 import logging
 from rank_bm25 import BM25Okapi
 
+# 🔧 LOGIC FIX: was hardcoding save_dir="./vectorstore" and dimension=3072
+# below, silently ignoring app.config's SAVE_DIR / EMBEDDING_DIMENSION
+# (both of which are env-var-overridable). That meant setting
+# EMBEDDING_DIMENSION or SAVE_DIR in the environment had zero effect on
+# this file — and if EMBEDDING_MODEL were ever changed to a model with a
+# different vector size, the FAISS index would still be built at the old
+# hardcoded 3072 dims while embed_query() returned the new size, breaking
+# every index.add()/index.search() call. Sourcing both from config.py
+# makes this file follow the same configuration as the rest of the app.
+from app.config import SAVE_DIR, EMBEDDING_DIMENSION
+
 # Set up simple logging so you can see what the code is doing in your terminal
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -16,7 +27,7 @@ class VectorService:
     A unified Vector Store that handles both FAISS (Vector Search) 
     and BM25 (Keyword Search) to give you Hybrid Search capabilities.
     """
-    def __init__(self, save_dir="./vectorstore", dimension=3072):
+    def __init__(self, save_dir=SAVE_DIR, dimension=EMBEDDING_DIMENSION):
         # 1. Configuration
         self.save_dir = save_dir
         self.dimension = dimension
@@ -203,5 +214,9 @@ class VectorService:
 # ==========================================
 # Instantiate this ONCE at the top of your main FastAPI file.
 # Do NOT create a new one inside your routes.
-
-vector_store = VectorService(save_dir="./vectorstore", dimension=3072)
+#
+# 🔧 LOGIC FIX: no longer hardcodes save_dir/dimension — both now come
+# from app.config (which itself falls back to "vectorstore"/3072 if the
+# corresponding env vars aren't set), so SAVE_DIR and EMBEDDING_DIMENSION
+# in your .env now actually take effect here.
+vector_store = VectorService()
