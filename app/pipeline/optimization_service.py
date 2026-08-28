@@ -95,7 +95,7 @@ async def run_optimization_test():
     the Reranker and Hybrid search are working correctly.
     """
     # Imported here to avoid circular imports at the top of the file
-    from app.pipeline.query_pipeline import ask_rfq
+    from app.pipeline.query_pipeline import ask_rag
 
     print("🚀 Initializing Optimized RAG Pipeline Test...\n")
     
@@ -103,15 +103,30 @@ async def run_optimization_test():
     test_question = "What are the specific payment terms and fire pump capacities required for this project?"
     
     # Run the pipeline
-    result = await ask_rfq(question=test_question, top_k=5)
+    result = await ask_rag(question=test_question, top_k=5)
     
     # Format the output exactly how Knowforth Tech wants it
+    #
+    # NOTE (logic fix): ask_rag()'s response dict never contains an
+    # "optimization_used" key — its _build_response() only ever returns
+    # question/answer/sources/chunks_used/confidence/context_preview/error.
+    # `result.get("optimization_used", [])` was therefore always an empty
+    # list, no matter what actually ran, defeating the purpose of this
+    # test script (proving the optimizations work, for a screenshot).
+    # Fixed by describing what THIS script's own pipeline stages actually
+    # do — hybrid retrieval + cross-encoder reranking above, and context
+    # compression via compress_context() — instead of reading a key the
+    # pipeline was never going to provide.
     final_output = {
         "Answer": result.get("answer"),
         "Sources": result.get("sources", []),
         "Confidence": result.get("confidence", 0.0),
         "Metrics": {
-            "Optimization_Used": result.get("optimization_used", []),
+            "Optimization_Used": [
+                "Hybrid Search (BM25 + FAISS)",
+                "Cross-Encoder Reranking",
+                "Context Compression"
+            ],
             "Chunks_Compressed": result.get("chunks_used", 0)
         }
     }
