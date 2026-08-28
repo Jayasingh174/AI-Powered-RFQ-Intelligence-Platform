@@ -1,5 +1,5 @@
 """
-RFQ AI System - Unified Pipeline
+RAG AI System - Unified Pipeline
 Handles both single-file processing and multi-file 'Bundle' orchestrations.
 Merges data from PDFs, CAD, and Excel, checks for consistency, and saves deliverables.
 """
@@ -21,6 +21,9 @@ from app.brain.conflict_engine import detect_conflicts
 from app.services.cad_service import extract_dwg
 from app.services.excel_service import extract_boq_data
 from app.pipeline.intelligence_service import DocumentIntelligence
+from app.extraction.bom_extractor import extract_bom
+from app.extraction.spec_extractor import extract_specs
+from app.extraction.table_extractor import extract_tables
 
 logger = logging.getLogger(__name__)
 
@@ -66,12 +69,12 @@ def deduplicate_entities(entities):
     return unique
 
 # ==========================================================
-# 📄 SINGLE FILE RFQ PROCESSOR
+# 📄 SINGLE FILE RAG PROCESSOR
 # ==========================================================
 
-async def process_rfq(file_path: str) -> Dict[str, Any]:
+async def process_rag(file_path: str) -> Dict[str, Any]:
     """
-    Main single RFQ processing pipeline:
+    Main single RAG processing pipeline:
     1. Reads & cleans text (Ingests into Vector DB)
     2. Uses LLM to extract strict JSON requirements
     3. Runs the Conflict Engine to verify quantities
@@ -79,7 +82,7 @@ async def process_rfq(file_path: str) -> Dict[str, Any]:
     """
     try:
         filename = os.path.basename(file_path)
-        logger.info(f"🚀 Starting RFQ Pipeline for: {filename}")
+        logger.info(f"🚀 Starting RAG Pipeline for: {filename}")
 
         # --------------------------------------------------
         # 1️⃣ Extract text & Store Vectors
@@ -93,9 +96,17 @@ async def process_rfq(file_path: str) -> Dict[str, Any]:
         ]
         
         clean_text = "\n\n".join(file_chunks)
+        
 
         if not clean_text or len(clean_text.strip()) < 10:
             raise ValueError(f"No meaningful text found in database for {filename}. Parsing may have failed.")
+
+                # Deterministic pattern-based extraction — fast, no LLM cost,
+        # complements (not replaces) the LLM extraction below.
+        bom_rows = extract_bom(clean_text)
+        spec_fields = extract_specs(clean_text)
+        detected_tables = extract_tables(clean_text)
+        
 
         # --------------------------------------------------
         # 2️⃣ Structured Extraction (LLM Intelligence)
@@ -106,6 +117,7 @@ async def process_rfq(file_path: str) -> Dict[str, Any]:
         structured_data = await intelligence.extract_structured_data(clean_text)
         
         extracted_items = structured_data.get("items", [])
+        
 
         # --------------------------------------------------
         # 3️⃣ Run the Conflict Engine
@@ -124,13 +136,16 @@ async def process_rfq(file_path: str) -> Dict[str, Any]:
 
         # --------------------------------------------------
         # 4️⃣ Prepare Result 
-        # --------------------------------------------------
+        # --------------------------------------------------                   
         result = {
             "status": "success",
             "source_file": filename,
             "project": structured_data.get("project", "Unknown Project"),
             "items": extracted_items,
-            "conflicts": conflict_report, 
+            "bom": bom_rows,
+            "specifications": [spec_fields] if spec_fields else [],
+            "tables": [detected_tables] if detected_tables else [],
+            "conflicts": conflict_report,
             "message": "Vectors stored, requirements extracted, and conflicts analyzed."
         }
 
@@ -142,11 +157,11 @@ async def process_rfq(file_path: str) -> Dict[str, Any]:
             cad_result = extract_dwg(file_path, output_dir=UPLOAD_DIR)
             result["cad_summary"] = cad_result.get("summary")
 
-        logger.info(f"✅ RFQ Pipeline complete for {filename}")
+        logger.info(f"✅ RAG Pipeline complete for {filename}")
         return result
 
     except Exception as e:
-        logger.error(f"❌ RFQ processing failed for {file_path}: {e}", exc_info=True)
+        logger.error(f"❌ RAG processing failed for {file_path}: {e}", exc_info=True)
         return {
             "status": "error",
             "project": "Error",
@@ -156,10 +171,10 @@ async def process_rfq(file_path: str) -> Dict[str, Any]:
         }
 
 # ==========================================================
-# 🚀 MULTI-FILE RFQ ORCHESTRATOR
+# 🚀 MULTI-FILE RAG ORCHESTRATOR
 # ==========================================================
 
-async def process_rfq_bundle(project_name: str, file_paths: List[str]) -> Dict[str, Any]:
+async def process_rag_bundle(project_name: str, file_paths: List[str]) -> Dict[str, Any]:
     """
     Master pipeline for 'Document Intelligence'. 
     Merges data from PDF, Word, and Excel and saves results to the deliverables folder.
@@ -188,7 +203,7 @@ async def process_rfq_bundle(project_name: str, file_paths: List[str]) -> Dict[s
             entities: List[Dict[str, Any]] = []
 
             # 1️⃣ STAGE: Process Document using the local function
-            result = await process_rfq(str(path))
+            result = await process_rag(str(path))
             
             if not result or result.get("status") == "error":
                 raise ValueError(result.get("message", "Extraction error"))
