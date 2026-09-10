@@ -2,10 +2,8 @@
  * RAG AI System - Frontend Logic (Consolidated & Fixed)
  */
 
-// --- State Management ---
-let currentAnalysisData = {}; // Store data for chat-triggered exports
+let currentAnalysisData = {};
 
-// --- DOM Elements ---
 const chat = document.getElementById("chat");
 const questionInput = document.getElementById("question");
 const sendBtn = document.getElementById("sendBtn");
@@ -20,9 +18,8 @@ const documentsContainer = document.getElementById("documents");
    ========================================= */
 if (dropZone && fileInput) {
     dropZone.addEventListener("click", () => fileInput.click());
+    fileInput.style.display = "none";  // 🔧 FIX: moved inside the same guard as the rest of this block
 }
-
-fileInput.style.display = "none"; 
 
 fileInput.addEventListener("change", async () => {
     const files = fileInput.files;
@@ -61,9 +58,8 @@ async function handleFiles(files) {
             <b>📂 RAG Bundle Uploaded</b><br>
             ${[...files].map(f => "• " + f.name).join("<br>")}
         `;
-        
+
         if (responseData && responseData.engineering_analysis) {
-            // Store data globally so the chat can export it later
             currentAnalysisData = responseData.engineering_analysis;
             displayConflictReport(responseData);
         }
@@ -85,7 +81,7 @@ async function handleFiles(files) {
 async function uploadBundle(files) {
     const formData = new FormData();
     formData.append("project_name", "RAG Analysis " + new Date().toLocaleTimeString());
-    
+
     for (let i = 0; i < files.length; i++) {
         formData.append("files", files[i]);
     }
@@ -102,13 +98,7 @@ async function uploadBundle(files) {
 /* =========================================
    PHASE 4: REQUIREMENT MATRIX UI & EXPORT
    ========================================= */
-   
-// The central download engine.
-// NOTE: the backend (export_router.py) only ever generates CSV — there is
-// no image or HTML-table export implemented server-side. This function
-// used to accept a `format` param and rename the download to .png/.html,
-// which was misleading: it downloaded a CSV file with the wrong extension.
-// Simplified to CSV-only until real image/HTML export exists server-side.
+
 async function triggerDownload(analysisData) {
     try {
         const response = await fetch("/export/conflicts", {
@@ -146,21 +136,21 @@ function displayConflictReport(responseData) {
     const summary = responseData.summary || { success: "all" };
 
     const aiDiv = createMessageElement("ai system-alert");
-    
+
     let html = `<h3>⚠️ Engineering Conflict Report</h3>`;
-    html += `<p>Cross-referenced ${summary.success} files successfully.</p>`; 
+    html += `<p>Cross-referenced ${summary.success} files successfully.</p>`;
 
     if (analysis.conflicts_found > 0) {
         html += `<p style="color: #ff4d4d;">❌ Found ${analysis.conflicts_found} conflict(s).</p>`;
         html += `<button id="downloadCsvBtn" class="action-btn">📥 Download CSV Report</button>`;
-        
+
         html += `<div class="table-wrapper">
                     <table>
                         <thead>
                             <tr><th>Entity</th><th>Source Quantities</th></tr>
                         </thead>
                         <tbody>`;
-        
+
         if (analysis.conflict_details) {
             analysis.conflict_details.forEach(item => {
                 let qtyStr = Object.entries(item.quantities)
@@ -174,7 +164,7 @@ function displayConflictReport(responseData) {
         html += `<p style="color: #28a745;">✅ No major conflicts detected between documents.</p>`;
     }
 
-    aiDiv.innerHTML = html; 
+    aiDiv.innerHTML = html;
     chat.scrollTop = chat.scrollHeight;
 
     const downloadBtn = document.getElementById("downloadCsvBtn");
@@ -204,7 +194,7 @@ async function askAI() {
 
     createMessageElement("user").textContent = question;
     questionInput.value = "";
-    
+
     const aiDiv = createMessageElement("ai thinking");
     aiDiv.textContent = "Thinking...";
 
@@ -216,35 +206,35 @@ async function askAI() {
         });
 
         if (!response.ok) throw new Error("Server error");
-        
+
         const data = await response.json();
         aiDiv.classList.remove("thinking");
 
+        // NOTE: this branch depends on the backend's QueryResponse model
+        // actually declaring an "action" field — confirm that server-side
+        // before relying on this path; FastAPI response_model validation
+        // silently drops undeclared fields, which would make data.action
+        // always undefined and this branch permanently dead.
         if (data.action === "export") {
             aiDiv.innerHTML = `<span style="color: #28a745;">✅ ${data.answer}</span>`;
-            
-            // Check if we actually have data to export
+
             if (!currentAnalysisData || Object.keys(currentAnalysisData).length === 0) {
                 aiDiv.innerHTML += `<br><small style="color: orange;">⚠️ No analysis data found to export. Try uploading files first.</small>`;
             } else {
-                // export_format from the backend's intent detection is
-                // ignored here — triggerDownload() only produces CSV
-                // (see note above triggerDownload's definition).
                 await triggerDownload(currentAnalysisData);
             }
-            return; 
+            return;
         }
 
-        // Standard Chat Render
         marked.setOptions({ breaks: true });
         const formattedAnswer = data.answer ? marked.parse(data.answer) : "No answer provided.";
 
         aiDiv.innerHTML = `
             ${formattedAnswer}
-            ${data.sources && data.sources.length > 0 
+            ${data.sources && data.sources.length > 0
                 ? `<div class="sources" style="margin-top:10px; font-size:0.8em; color:gray;">
                     <strong>Sources:</strong> ${data.sources.join(", ")}
-                </div>` 
+                </div>`
                 : ""
             }
         `;
@@ -281,7 +271,7 @@ async function loadDocuments() {
             const div = document.createElement("div");
             div.className = "document-item";
             div.innerHTML = `<span class="doc-name">${doc}</span>`;
-            
+
             const delBtn = document.createElement("button");
             delBtn.className = "delete-btn";
             delBtn.innerHTML = "🗑️";
@@ -298,14 +288,25 @@ async function loadDocuments() {
 async function deleteDocument(filename) {
     if (!confirm(`Are you sure you want to delete "${filename}"?`)) return;
     try {
-        await fetch(`/documents/${filename}`, { method: "DELETE" });
+        // 🔧 FIX: was `/documents/${filename}` — every backend router
+        // reviewed defines delete at `/delete/{filename}`, not
+        // `/documents/{filename}`. This was calling a route that
+        // doesn't exist, silently, since the response was never checked.
+        const response = await fetch(`/delete/${filename}`, { method: "DELETE" });
+
+        // 🔧 FIX: check the response instead of assuming success
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Server returned ${response.status}: ${errText}`);
+        }
+
         loadDocuments();
     } catch (error) {
-        alert("Error deleting document.");
+        console.error("Delete error:", error);
+        alert(`Error deleting document: ${error.message}`);
     }
 }
 
-// Event Listeners
 sendBtn.onclick = askAI;
 questionInput.onkeydown = (e) => {
     if (e.key === "Enter") {
