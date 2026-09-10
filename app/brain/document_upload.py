@@ -5,6 +5,7 @@ in sync with the hard drive.
 """
 
 import os
+from app.brain.vector_service import vector_store
 
 UPLOAD_DIR = "uploads"
 
@@ -33,11 +34,9 @@ def add_document(name):
     pass
 
 def delete_document(name):
-    """
-    Safely deletes the file from the hard drive.
-    """
     file_path = os.path.join(UPLOAD_DIR, name)
     if os.path.exists(file_path):
         os.remove(file_path)
+        vector_store.delete_by_source(name)
         return True
     return False
