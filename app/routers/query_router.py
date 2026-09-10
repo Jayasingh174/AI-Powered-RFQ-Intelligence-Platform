@@ -3,33 +3,26 @@ RFQ AI System - Query & Search Router
 Handles direct AI questions (Chatbot) and raw document search/retrieval operations.
 """
 
+import copy
 import logging
 from typing import List, Dict, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-# --- Core Pipelines & Logic ---
 from app.pipeline.query_pipeline import ask_rfq
-
-# 🔥 THE FIX: Pointing to the correct optimized_rag file
 from app.pipeline.optimization_service import retrieve_and_rerank
-
-# --- Models ---
 from app.models.query_model import QueryRequest, QueryResponse
 
-# Configure logger for this module
 logger = logging.getLogger(__name__)
 
-# Define the router
 router = APIRouter(prefix="/query", tags=["Query & Search"])
 
-# ==========================================
-# 📝 INLINE MODELS (For Search Endpoint)
-# ==========================================
+
 class SearchRequest(BaseModel):
     query: str
     initial_k: Optional[int] = 20
     final_k: Optional[int] = 5
+
 
 class SearchResponse(BaseModel):
     status: str
@@ -37,9 +30,7 @@ class SearchResponse(BaseModel):
     results: List[Dict]
     confidence_score: float
 
-# ==========================================
-# 🤖 CHATBOT QUERY ENDPOINT (/ask)
-# ==========================================
+
 @router.post("/ask", response_model=QueryResponse)
 async def query_rfq(request: QueryRequest):
     """
@@ -51,8 +42,8 @@ async def query_rfq(request: QueryRequest):
     try:
         logger.info(f"🤖 Processing user query: '{request.question}'")
 
-        # Execute the end-to-end RAG pipeline
-        result = await ask_rfq(question=request.question)
+        # 🔧 FIX: forward top_k instead of silently discarding it
+        result = await ask_rfq(question=request.question, top_k=request.top_k)
 
         return result
 
@@ -63,9 +54,7 @@ async def query_rfq(request: QueryRequest):
             detail=f"The AI query failed to process: {str(e)}"
         )
 
-# ==========================================
-# 🔍 RAW SEARCH & RERANK ENDPOINT (/search)
-# ==========================================
+
 @router.post("/search", response_model=SearchResponse)
 async def search_documents(request: SearchRequest):
     """
@@ -74,10 +63,8 @@ async def search_documents(request: SearchRequest):
     Useful for debugging, UI document lists, or advanced data retrieval.
     """
     logger.info(f"🔍 Executing raw search for query: '{request.query}'")
-    
+
     try:
-        # Await the async function from optimized_rag.py
-        # Ensure initial_k/final_k are ints (fallback to defaults if None)
         initial_k = request.initial_k if request.initial_k is not None else 20
         final_k = request.final_k if request.final_k is not None else 5
 
@@ -87,10 +74,20 @@ async def search_documents(request: SearchRequest):
             final_k=final_k
         )
 
+        # 🔧 FIX: deep-copy before this leaves retrieve_and_rerank's
+        # ownership. retrieve_and_rerank() attaches 'rerank_score'
+        # directly onto the dicts returned by vector_store.hybrid_search(),
+        # which are live references into vector_store.documents — the
+        # actual persisted index, not a snapshot. Without copying, every
+        # search request permanently contaminates the index with the last
+        # query's relevance score, which then gets written to disk on the
+        # next save_index() and can race with concurrent requests.
+        safe_results = [copy.deepcopy(r) for r in results]
+
         return SearchResponse(
             status="success",
             query=request.query,
-            results=results,
+            results=safe_results,
             confidence_score=score
         )
 
