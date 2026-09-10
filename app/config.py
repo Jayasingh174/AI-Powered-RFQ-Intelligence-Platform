@@ -46,6 +46,7 @@ if not OPENAI_API_KEY:
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 OPENAI_TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", 0.0))
 OPENAI_MAX_TOKENS = int(os.getenv("OPENAI_MAX_TOKENS", 2000))
+MAX_RETRIES = int(os.getenv("MAX_RETRIES", 3))
 
 # -------------------------------------------------
 # Retrieval & RAG settings
@@ -62,7 +63,6 @@ DEFAULT_OVERHEAD = float(os.getenv("DEFAULT_OVERHEAD", 0.2))
 # -------------------------------------------------
 # Upload settings
 # -------------------------------------------------
-# Convert to a set of lowercase extensions WITH dots for easy checking (e.g., {'.pdf', '.docx'})
 ALLOWED_FILE_TYPES = set(
     f".{ext.strip().lower()}" for ext in 
     os.getenv("ALLOWED_FILE_TYPES", "docx,pdf,dwg,dxf,txt,csv,xlsx,xls").replace(".", "").split(",")
@@ -76,6 +76,17 @@ MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
 # -------------------------------------------------
 INDEX_FILE = os.path.join(SAVE_DIR, "index.faiss")
 DOCS_FILE = os.path.join(SAVE_DIR, "docs.npy")
+
+# -------------------------------------------------
+# CAD / ODA File Converter settings
+# -------------------------------------------------
+# The old code had a machine-specific absolute Windows path baked into
+# the source file (C:\Jaya\... then E:\Github\...) — it would break on
+# every other machine (teammate's PC, CI, Linux server, deployment box).
+# Now it's read from .env, with no default, so the failure is explicit
+# and configurable per-machine instead of silently wrong or hardcoded.
+
+ODA_PATH = os.getenv("ODA_PATH", "")
 
 # -------------------------------------------------
 # Validation Helpers
