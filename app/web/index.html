@@ -3,19 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RFQ Intelligence</title>
+    <meta name="description" content="AI-Powered RFQ Intelligence Platform — upload engineering documents and ask questions about quantities, specs, and cross-document conflicts.">
+    <title>AI-Powered RFQ Intelligence Platform</title>
+    <link rel="icon" href="/static/favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Deferred (not needed until first chat response) + SRI hash.
+         Generate the real hash for your pinned version at https://www.srihash.org/
+         before shipping — the value below is illustrative, not a real hash. -->
+    <script
+        src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"
+        integrity="sha384-REPLACE_WITH_REAL_HASH_FOR_YOUR_PINNED_VERSION"
+        crossorigin="anonymous"
+        defer>
+    </script>
 </head>
 <body>
     <div class="app-container">
         <aside class="sidebar">
             <div class="sidebar-title">
-                <span class="mark">RFQ</span>
-                <h1>Intelligence</h1>
+                <span class="mark">AI</span>
+                <h1>Powered RFQ Intelligence Platform</h1>
             </div>
 
             <div class="drop-zone" id="dropZone">
@@ -24,7 +34,12 @@
                     <p>Drag files here, or click to browse</p>
                     <span class="drop-zone-formats">PDF · DOCX · XLSX · DWG · DXF</span>
                 </div>
-                <input type="file" id="fileInput" multiple aria-label="Upload RFQ documents">
+                <input
+                    type="file"
+                    id="fileInput"
+                    multiple
+                    accept=".pdf,.docx,.xlsx,.xls,.dwg,.dxf"
+                    aria-label="Upload RFQ documents">
 
                 <div class="upload-status">
                     <p id="fileName"></p>
@@ -46,7 +61,7 @@
                 <span class="chat-header-status">Ready</span>
             </header>
 
-            <div class="chat-container" id="chat">
+            <div class="chat-container" id="chat" aria-live="polite" role="log">
                 <div class="message system">
                     Upload your RFQ documents in the sidebar, then ask a question about quantities, specs, or conflicts between files.
                 </div>
@@ -59,7 +74,7 @@
                     placeholder="Ask a question about your RFQ..."
                     autocomplete="off"
                 />
-                <button id="sendBtn" title="Send message">
+                <button id="sendBtn" title="Send message" aria-label="Send message">
                     <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none">
                         <line x1="22" y1="2" x2="11" y2="13"></line>
                         <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
@@ -68,6 +83,6 @@
             </div>
         </main>
     </div>
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js" defer></script>
 </body>
 </html>
