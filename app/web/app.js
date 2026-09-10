@@ -1,6 +1,9 @@
 /**
- * RAG AI System - Frontend Logic (Consolidated)
+ * RAG AI System - Frontend Logic (Consolidated & Fixed)
  */
+
+// --- State Management ---
+let currentAnalysisData = {}; // Store data for chat-triggered exports
 
 // --- DOM Elements ---
 const chat = document.getElementById("chat");
@@ -13,7 +16,7 @@ const progressBar = document.getElementById("progress");
 const documentsContainer = document.getElementById("documents");
 
 /* =========================================
-   FILE MANAGEMENT (BUNDLE UPLOAD)
+   FILE MANAGEMENT (PHASE 3: BUNDLE UPLOAD)
    ========================================= */
 if (dropZone && fileInput) {
     dropZone.addEventListener("click", () => fileInput.click());
@@ -55,11 +58,15 @@ async function handleFiles(files) {
 
         const aiDiv = createMessageElement("ai system");
         aiDiv.innerHTML = `
-            <b>📂 Documents Uploaded Successfully</b><br>
+            <b>📂 RAG Bundle Uploaded</b><br>
             ${[...files].map(f => "• " + f.name).join("<br>")}
         `;
         
-        console.log("Extraction Data:", responseData);
+        if (responseData && responseData.engineering_analysis) {
+            // Store data globally so the chat can export it later
+            currentAnalysisData = responseData.engineering_analysis;
+            displayConflictReport(responseData);
+        }
 
     } catch (error) {
         console.error("Bundle upload failed:", error);
@@ -77,7 +84,7 @@ async function handleFiles(files) {
 
 async function uploadBundle(files) {
     const formData = new FormData();
-    formData.append("project_name", "Document Analysis " + new Date().toLocaleTimeString());
+    formData.append("project_name", "RAG Analysis " + new Date().toLocaleTimeString());
     
     for (let i = 0; i < files.length; i++) {
         formData.append("files", files[i]);
@@ -88,16 +95,96 @@ async function uploadBundle(files) {
         body: formData
     });
 
-    if (!response.ok) {
-        throw new Error(response.statusText);
-    }
-    
+    if (!response.ok) throw new Error(response.statusText);
     return await response.json();
 }
 
+/* =========================================
+   PHASE 4: REQUIREMENT MATRIX UI & EXPORT
+   ========================================= */
+   
+// The central download engine.
+// NOTE: the backend (export_router.py) only ever generates CSV — there is
+// no image or HTML-table export implemented server-side. This function
+// used to accept a `format` param and rename the download to .png/.html,
+// which was misleading: it downloaded a CSV file with the wrong extension.
+// Simplified to CSV-only until real image/HTML export exists server-side.
+async function triggerDownload(analysisData) {
+    try {
+        const response = await fetch("/export/conflicts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(analysisData)
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Server returned ${response.status}: ${errText}`);
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.style.display = 'none';
+        a.href = url;
+        a.download = "RFQ_Conflict_Report.csv";
+
+        document.body.appendChild(a);
+        a.click();
+
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+    } catch (error) {
+        console.error("❌ Download error:", error);
+        alert(`Download Failed: \n${error.message}`);
+    }
+}
+
+function displayConflictReport(responseData) {
+    const analysis = responseData.engineering_analysis;
+    const summary = responseData.summary || { success: "all" };
+
+    const aiDiv = createMessageElement("ai system-alert");
+    
+    let html = `<h3>⚠️ Engineering Conflict Report</h3>`;
+    html += `<p>Cross-referenced ${summary.success} files successfully.</p>`; 
+
+    if (analysis.conflicts_found > 0) {
+        html += `<p style="color: #ff4d4d;">❌ Found ${analysis.conflicts_found} conflict(s).</p>`;
+        html += `<button id="downloadCsvBtn" class="action-btn">📥 Download CSV Report</button>`;
+        
+        html += `<div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr><th>Entity</th><th>Source Quantities</th></tr>
+                        </thead>
+                        <tbody>`;
+        
+        if (analysis.conflict_details) {
+            analysis.conflict_details.forEach(item => {
+                let qtyStr = Object.entries(item.quantities)
+                                   .map(([src, qty]) => `<b>${src}:</b> ${qty}`)
+                                   .join('<br>');
+                html += `<tr><td>${item.entity}</td><td>${qtyStr}</td></tr>`;
+            });
+        }
+        html += `</tbody></table></div>`;
+    } else {
+        html += `<p style="color: #28a745;">✅ No major conflicts detected between documents.</p>`;
+    }
+
+    aiDiv.innerHTML = html; 
+    chat.scrollTop = chat.scrollHeight;
+
+    const downloadBtn = document.getElementById("downloadCsvBtn");
+    if (downloadBtn) {
+        downloadBtn.onclick = () => triggerDownload(analysis);
+    }
+}
 
 /* =========================================
-   AGENT CHAT FUNCTIONALITY
+   CHAT FUNCTIONALITY
    ========================================= */
 
 function createMessageElement(type) {
@@ -112,23 +199,20 @@ async function askAI() {
     const question = questionInput.value.trim();
     if (!question) return;
 
-    // 1. Lock UI
     questionInput.disabled = true;
     sendBtn.disabled = true;
 
-    // 2. Display user message
     createMessageElement("user").textContent = question;
     questionInput.value = "";
     
     const aiDiv = createMessageElement("ai thinking");
-    aiDiv.textContent = "Agent is reasoning..."; // Updated UX copy
+    aiDiv.textContent = "Thinking...";
 
     try {
-        // 🚀 Hit the new Multi-Agent Endpoint
-        const response = await fetch("/api/v1/agents/agent", {
+        const response = await fetch("/query/ask", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query: question }) // Mapped to the new Pydantic schema
+            body: JSON.stringify({ question })
         });
 
         if (!response.ok) throw new Error("Server error");
@@ -136,25 +220,41 @@ async function askAI() {
         const data = await response.json();
         aiDiv.classList.remove("thinking");
 
-        // Use Marked.js to parse Markdown into beautiful HTML
+        if (data.action === "export") {
+            aiDiv.innerHTML = `<span style="color: #28a745;">✅ ${data.answer}</span>`;
+            
+            // Check if we actually have data to export
+            if (!currentAnalysisData || Object.keys(currentAnalysisData).length === 0) {
+                aiDiv.innerHTML += `<br><small style="color: orange;">⚠️ No analysis data found to export. Try uploading files first.</small>`;
+            } else {
+                // export_format from the backend's intent detection is
+                // ignored here — triggerDownload() only produces CSV
+                // (see note above triggerDownload's definition).
+                await triggerDownload(currentAnalysisData);
+            }
+            return; 
+        }
+
+        // Standard Chat Render
         marked.setOptions({ breaks: true });
-        
-        // The new Agent response model returns 'answer'
         const formattedAnswer = data.answer ? marked.parse(data.answer) : "No answer provided.";
 
         aiDiv.innerHTML = `
-            <div class="markdown-body">
-                ${formattedAnswer}
-            </div>
+            ${formattedAnswer}
+            ${data.sources && data.sources.length > 0 
+                ? `<div class="sources" style="margin-top:10px; font-size:0.8em; color:gray;">
+                    <strong>Sources:</strong> ${data.sources.join(", ")}
+                </div>` 
+                : ""
+            }
         `;
 
     } catch (error) {
         console.error("Chat Error:", error);
         aiDiv.classList.remove("thinking");
         aiDiv.classList.add("error");
-        aiDiv.textContent = "⚠️ Error: Could not connect to the Agent service.";
+        aiDiv.textContent = "⚠️ Error: Could not connect to service.";
     } finally {
-        // 3. Unlock UI (Crucial)
         questionInput.disabled = false;
         sendBtn.disabled = false;
         questionInput.focus();
@@ -182,27 +282,12 @@ async function loadDocuments() {
             div.className = "document-item";
             div.innerHTML = `<span class="doc-name">${doc}</span>`;
             
-            // Container for buttons
-            const actionsDiv = document.createElement("div");
-            actionsDiv.className = "doc-actions";
-            
-            // New Analyze Button
-            const analyzeBtn = document.createElement("button");
-            analyzeBtn.className = "analyze-btn";
-            analyzeBtn.innerHTML = "⚡ Analyze";
-            analyzeBtn.style.marginRight = "8px"; // Quick inline styling
-            analyzeBtn.onclick = () => triggerFullAnalysis(doc);
-            
-            // Delete Button
             const delBtn = document.createElement("button");
             delBtn.className = "delete-btn";
             delBtn.innerHTML = "🗑️";
             delBtn.onclick = () => deleteDocument(doc);
 
-            actionsDiv.appendChild(analyzeBtn);
-            actionsDiv.appendChild(delBtn);
-            
-            div.appendChild(actionsDiv);
+            div.appendChild(delBtn);
             documentsContainer.appendChild(div);
         });
     } catch (error) {
@@ -210,67 +295,17 @@ async function loadDocuments() {
     }
 }
 
-async function triggerFullAnalysis(filename) {
-    // 1. Show processing state
-    const aiDiv = createMessageElement("ai thinking");
-    aiDiv.innerHTML = `Running Multi-Agent Analysis on <b>${filename}</b>...<br><small>This may take a minute.</small>`;
-
-    try {
-        // 2. Call the dedicated sequential pipeline endpoint
-        const response = await fetch("/api/v1/agents/analyze-rag", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ file_path: `uploads/${filename}` }) 
-        });
-
-        if (!response.ok) throw new Error("Server error");
-        
-        const result = await response.json();
-        aiDiv.classList.remove("thinking");
-
-        // 3. Format the heavy JSON payload into a readable report
-        if (result.status === "success") {
-            const data = result.data;
-            aiDiv.innerHTML = `
-                <div class="markdown-body">
-                    <h3>📄 Executive Summary: ${filename}</h3>
-                    <p>${data.summary.summary}</p>
-                    
-                    <h4>🔑 Key Points</h4>
-                    <ul>${data.summary.key_points.map(p => `<li>${p}</li>`).join('')}</ul>
-                    
-                    <h4>⚠️ Risk Assessment</h4>
-                    <p><b>Overall Risk Level:</b> ${data.risk.risk_level}</p>
-                    <ul>${data.risk.risks.map(r => `<li>${r}</li>`).join('')}</ul>
-                    
-                    <h4>📦 Bill of Quantities (${data.boq.boq_items.length} items)</h4>
-                    <p><i>Ask the chat for specific BOQ calculations.</i></p>
-                </div>
-            `;
-        } else {
-            aiDiv.classList.add("error");
-            aiDiv.textContent = "Analysis failed: " + result.message;
-        }
-
-    } catch (error) {
-        console.error("Analysis Error:", error);
-        aiDiv.classList.remove("thinking");
-        aiDiv.classList.add("error");
-        aiDiv.textContent = "⚠️ Error: Could not complete document analysis.";
-    }
-}
-
 async function deleteDocument(filename) {
     if (!confirm(`Are you sure you want to delete "${filename}"?`)) return;
     try {
-        await fetch(`/delete/${filename}`, { method: "DELETE" });
+        await fetch(`/documents/${filename}`, { method: "DELETE" });
         loadDocuments();
     } catch (error) {
         alert("Error deleting document.");
     }
 }
 
-// Final Event Listeners
+// Event Listeners
 sendBtn.onclick = askAI;
 questionInput.onkeydown = (e) => {
     if (e.key === "Enter") {
@@ -279,5 +314,4 @@ questionInput.onkeydown = (e) => {
     }
 };
 
-// Initial Load
 loadDocuments();
