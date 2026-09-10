@@ -8,7 +8,7 @@ from app.services.docx_service import extract_docx
 from app.services.csv_service import extract_csv
 from app.services.excel_service import extract_boq_data
 from app.services.text_service import extract_text
-from app.services.cad_service import extract_dwg, summarize_dxf
+from app.services.cad_service import extract_dwg, parse_dxf, summarize_dxf  # 🔧 FIX: added parse_dxf
 
 # AI pipeline services
 from app.brain.chunk_service import chunk_text
@@ -30,13 +30,11 @@ SUPPORTED_EXTENSIONS = {
 # --- HELPER: FUZZY DICTIONARY MATCHER ---
 def get_fuzzy_val(row_dict: dict, possible_keys: list) -> str:
     """Checks a dictionary for multiple possible column names (case-insensitive)"""
-    # 🔥 FIX 1: Safely abort if the Excel parser handed us a string instead of a row dictionary
     if not isinstance(row_dict, dict):
         return ""
-        
-    # Convert all keys in the row to lowercase for safe checking
+
     lower_row = {str(k).lower().strip(): v for k, v in row_dict.items() if k}
-    
+
     for key in possible_keys:
         if key.lower() in lower_row and lower_row[key.lower()] is not None:
             return str(lower_row[key.lower()]).strip()
@@ -69,7 +67,6 @@ async def process_document(file_path: str) -> str:
                 raise ValueError("No data extracted from Excel")
 
             for row in boq_data:
-                # 🔥 FIX 1b: Double protection. Skip if the row isn't a dictionary
                 if not row or not isinstance(row, dict):
                     continue
 
@@ -102,8 +99,10 @@ async def process_document(file_path: str) -> str:
             elif ext == ".dwg":
                 raw = extract_dwg(file_path, DWG_TEMP_DIR)
             elif ext == ".dxf":
-                # summarize_dxf expects a parsed data dict; pass a dict containing the file path
-                raw = summarize_dxf({"file_path": file_path})
+                # 🔧 FIX: summarize_dxf() takes one dict arg (from parse_dxf),
+                # not (file_path, output_dir). Parse first, then summarize.
+                parsed_data = parse_dxf(file_path)
+                raw = {"summary": summarize_dxf(parsed_data), "text_chunks": []}
             else:
                 raw = ""
 
@@ -132,12 +131,11 @@ async def process_document(file_path: str) -> str:
         # ==================================================
         embeddings = await embed_texts(chunks)
 
-        # 🔥 FIX 2: Safe NumPy Array Check (Using "is None")
         if embeddings is None or len(embeddings) == 0:
             raise ValueError("Embedding generation failed")
 
         # ==================================================
-        # 4️⃣ STORE VECTORS (THE BATCH FIX)
+        # 4️⃣ STORE VECTORS
         # ==================================================
         filename = os.path.basename(file_path)
 
