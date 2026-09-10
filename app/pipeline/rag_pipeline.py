@@ -11,13 +11,11 @@ import logging
 import datetime
 from pathlib import Path
 from typing import List, Dict, Any
-from collections import defaultdict
 
-# ----- Internal Configuration & Services -----
 from app.config import UPLOAD_DIR
 from app.brain.document_service import process_document
 from app.brain.vector_service import vector_store
-from app.brain.conflict_engine import detect_conflicts
+from app.brain.conflict_engine import detect_conflicts, normalize_entity, deduplicate_entities  # 🔧 FIX: use the shared implementations, not local duplicates
 from app.services.cad_service import extract_dwg
 from app.services.excel_service import extract_boq_data
 from app.pipeline.intelligence_service import DocumentIntelligence
@@ -27,46 +25,6 @@ from app.extraction.table_extractor import extract_tables
 
 logger = logging.getLogger(__name__)
 
-# ==========================================================
-# 🧹 DATA CLEANING HELPERS
-# ==========================================================
-
-def safe_int(val, default=1):
-    """Converts mixed strings (e.g., '25 Nos') into clean integers."""
-    try:
-        num_str = re.sub(r"[^\d.]", "", str(val))
-        return int(float(num_str)) if num_str else default
-    except Exception:
-        return default
-
-def clean_item(text: str) -> str:
-    """Normalizes item names for better matching across different files."""
-    text = str(text).lower()
-    text = re.sub(r"[^a-z0-9\s]", " ", text)
-    return re.sub(r"\s+", " ", text).strip()
-
-def normalize_entity(item, quantity, source, etype, path):
-    """Creates a standardized dictionary for every item found in any file."""
-    return {
-        "item": clean_item(item),
-        "quantity": safe_int(quantity),
-        "source": source,
-        "type": etype,
-        "file_path": path,
-    }
-
-def deduplicate_entities(entities):
-    """Removes identical entries to prevent double-counting."""
-    seen = set()
-    unique = []
-    for e in entities:
-        if not isinstance(e, dict) or "item" not in e:
-            continue
-        key = (e["item"], e["type"], e["file_path"])
-        if key not in seen:
-            seen.add(key)
-            unique.append(e)
-    return unique
 
 # ==========================================================
 # 📄 SINGLE FILE RAG PROCESSOR
@@ -87,66 +45,63 @@ async def process_rag(file_path: str) -> Dict[str, Any]:
         # --------------------------------------------------
         # 1️⃣ Extract text & Store Vectors
         # --------------------------------------------------
-        await process_document(file_path)
-
-        # Explicitly grab the text chunks for THIS file from the database
-        file_chunks = [
-            chunk["text"] for chunk in vector_store.documents 
-            if chunk.get("metadata", {}).get("source") == filename
-        ]
-        
-        clean_text = "\n\n".join(file_chunks)
-        
+        # 🔧 FIX: use process_document()'s own return value instead of
+        # re-deriving text from vector_store.documents. Re-deriving by
+        # filtering on metadata.source == filename silently breaks
+        # whenever this file's content duplicates something already
+        # indexed under a different filename — add_documents() correctly
+        # skips re-adding duplicate-hash chunks, so nothing ever gets
+        # tagged with the new filename, and the old filter finds nothing.
+        clean_text = await process_document(file_path)
 
         if not clean_text or len(clean_text.strip()) < 10:
-            raise ValueError(f"No meaningful text found in database for {filename}. Parsing may have failed.")
+            raise ValueError(f"No meaningful text extracted for {filename}. Parsing may have failed.")
 
-                # Deterministic pattern-based extraction — fast, no LLM cost,
+        # Deterministic pattern-based extraction — fast, no LLM cost,
         # complements (not replaces) the LLM extraction below.
         bom_rows = extract_bom(clean_text)
         spec_fields = extract_specs(clean_text)
         detected_tables = extract_tables(clean_text)
-        
 
         # --------------------------------------------------
         # 2️⃣ Structured Extraction (LLM Intelligence)
         # --------------------------------------------------
         logger.info(f"🧠 Extracting structured BOM and Specs via LLM (Context length: {len(clean_text)})...")
-        
-        intelligence = DocumentIntelligence() 
+
+        intelligence = DocumentIntelligence()
         structured_data = await intelligence.extract_structured_data(clean_text)
-        
+
         extracted_items = structured_data.get("items", [])
-        
 
         # --------------------------------------------------
         # 3️⃣ Run the Conflict Engine
         # --------------------------------------------------
         logger.info("🔍 Running Conflict Engine on extracted items...")
-        
-        mapped_items = []
-        for item in extracted_items:
-            mapped_items.append({
+
+        mapped_items = [
+            {
                 "item": item.get("name", "Unknown Item"),
                 "quantity": item.get("qty", 1),
-                "source": filename
-            })
-            
+                "source": filename,
+            }
+            for item in extracted_items
+        ]
+
         conflict_report = detect_conflicts(mapped_items)
 
         # --------------------------------------------------
-        # 4️⃣ Prepare Result 
-        # --------------------------------------------------                   
+        # 4️⃣ Prepare Result
+        # --------------------------------------------------
         result = {
             "status": "success",
             "source_file": filename,
             "project": structured_data.get("project", "Unknown Project"),
             "items": extracted_items,
             "bom": bom_rows,
-            "specifications": [spec_fields] if spec_fields else [],
-            "tables": [detected_tables] if detected_tables else [],
+            "specifications": spec_fields,   # 🔧 FIX: no extra list wrapper
+            "tables": detected_tables,        # 🔧 FIX: no extra list wrapper — already a list of tables
             "conflicts": conflict_report,
-            "message": "Vectors stored, requirements extracted, and conflicts analyzed."
+            "message": "Vectors stored, requirements extracted, and conflicts analyzed.",
         }
 
         # --------------------------------------------------
@@ -156,6 +111,7 @@ async def process_rag(file_path: str) -> Dict[str, Any]:
             logger.info("📐 CAD file detected. Running visual extraction...")
             cad_result = extract_dwg(file_path, output_dir=UPLOAD_DIR)
             result["cad_summary"] = cad_result.get("summary")
+            result["cad_entities"] = cad_result.get("parsed_entities", {})  # 🔧 FIX: actually set what process_rag_bundle reads
 
         logger.info(f"✅ RAG Pipeline complete for {filename}")
         return result
@@ -167,8 +123,9 @@ async def process_rag(file_path: str) -> Dict[str, Any]:
             "project": "Error",
             "items": [],
             "conflicts": {},
-            "message": str(e)
+            "message": str(e),
         }
+
 
 # ==========================================================
 # 🚀 MULTI-FILE RAG ORCHESTRATOR
@@ -176,7 +133,7 @@ async def process_rag(file_path: str) -> Dict[str, Any]:
 
 async def process_rag_bundle(project_name: str, file_paths: List[str]) -> Dict[str, Any]:
     """
-    Master pipeline for 'Document Intelligence'. 
+    Master pipeline for 'Document Intelligence'.
     Merges data from PDF, Word, and Excel and saves results to the deliverables folder.
     """
     logger.info(f"🚀 Starting Bundle processing for project: {project_name}")
@@ -202,21 +159,25 @@ async def process_rag_bundle(project_name: str, file_paths: List[str]) -> Dict[s
             ext = path.suffix.lower().lstrip(".")
             entities: List[Dict[str, Any]] = []
 
-            # 1️⃣ STAGE: Process Document using the local function
+            # 1️⃣ STAGE: Process Document
             result = await process_rag(str(path))
-            
+
             if not result or result.get("status") == "error":
                 raise ValueError(result.get("message", "Extraction error"))
 
             with open(f"deliverables/requirements_{filename}.json", "w") as f:
                 json.dump(result, f, indent=4)
 
-            # 2️⃣ STAGE: Entity Extraction
+            # 2️⃣ STAGE: Entity Extraction — now uses conflict_engine's
+            # shared normalize_entity/deduplicate_entities (see import
+            # above), not a local copy with a different schema and
+            # weaker (data-dropping) dedup behavior.
             if ext in EXCEL_EXTS:
                 boq_data = extract_boq_data(str(path))
                 if isinstance(boq_data, list):
                     for row in boq_data:
-                        if not isinstance(row, dict): continue
+                        if not isinstance(row, dict):
+                            continue
                         item = row.get("Item") or row.get("Description")
                         qty = row.get("Quantity") or row.get("Qty")
                         if item and qty:
@@ -224,9 +185,15 @@ async def process_rag_bundle(project_name: str, file_paths: List[str]) -> Dict[s
                 status_msg = "processed as BOQ"
             else:
                 for entity in result.get("cad_entities", []) or []:
-                    entities.append(normalize_entity(entity.get("item", "Unknown"), entity.get("qty"), f"CAD ({filename})", "CAD", str(path)))
+                    entities.append(normalize_entity(
+                        entity.get("item", "Unknown"), entity.get("qty"),
+                        f"CAD ({filename})", "CAD", str(path)
+                    ))
                 for item in result.get("bom", []) or []:
-                    entities.append(normalize_entity(item.get("item", "Unknown"), item.get("quantity"), f"Spec BOM ({filename})", "Spec BOM", str(path)))
+                    entities.append(normalize_entity(
+                        item.get("item", "Unknown"), item.get("quantity"),
+                        f"Spec BOM ({filename})", "Spec BOM", str(path)
+                    ))
                 status_msg = "processed as unstructured"
 
             processed_results.append({"file": filename, "status": status_msg})
@@ -240,7 +207,7 @@ async def process_rag_bundle(project_name: str, file_paths: List[str]) -> Dict[s
 
     # 3️⃣ STAGE: Conflict Detection & Fallback
     all_normalized_entities = deduplicate_entities(all_normalized_entities)
-    
+
     if not all_normalized_entities:
         logger.warning("⚠️ No entities extracted for the report context.")
         conflict_report = {"message": "No machine-readable entities found to analyze."}
@@ -254,7 +221,7 @@ async def process_rag_bundle(project_name: str, file_paths: List[str]) -> Dict[s
     # 4️⃣ STAGE: Final Master Report with Safe Filename
     safe_time = datetime.datetime.now().strftime("%H-%M-%S")
     safe_project = re.sub(r'[\\/*?:"<>|]', "", project_name)
-    
+
     final_output = {
         "project_name": project_name,
         "timestamp": datetime.datetime.now().isoformat(),
