@@ -1,522 +1,533 @@
-/* =========================================
-   CORE STYLES
-   ========================================= */
+/* ==========================================
+   AI-Powered RFQ Intelligence Platform
+   Base styles
+   ========================================== */
+
 :root {
-    --primary-color: #007bff;
-    --bg-color: #f8f9fa;
-    --sidebar-bg: #ffffff;
-    --border-color: #dee2e6;
-    --text-main: #333;
-    --text-muted: #6c757d;
-    --ai-bubble: #e9ecef;
-    --user-bubble: #007bff;
+    --bg-app: #0e1116;
+    --bg-sidebar: #12161d;
+    --bg-panel: #161b23;
+    --bg-elevated: #1c222c;
+    --border: #262d38;
+    --border-strong: #333c4a;
+
+    --text-primary: #e8ecf1;
+    --text-secondary: #9aa4b2;
+    --text-muted: #5f6b7a;
+
+    --accent: #4f8cff;
+    --accent-dim: #2c4a80;
+    --success: #28a745;
+    --danger: #ff4d4d;
+    --warning: #e6a23c;
+
+    --font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+
+    --radius: 8px;
+    --radius-sm: 5px;
 }
 
 * {
     box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
     margin: 0;
     padding: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 body {
-    background-color: var(--bg-color);
-    color: var(--text-main);
-    height: 100vh;
-    display: flex;
+    font-family: var(--font-sans);
+    background: var(--bg-app);
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.5;
 }
 
-.app-container {
-    display: flex;
-    width: 100%;
-    height: 100%;
-}
-
-/* =========================================
-   SIDEBAR & UPLOAD ZONE
-   ========================================= */
-.sidebar {
-    width: 320px;
-    background: var(--sidebar-bg);
-    border-right: 1px solid var(--border-color);
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-}
-
-.sidebar h2 {
-    font-size: 1.2rem;
-    margin-bottom: 20px;
-}
-
-.drop-zone {
-    border: 2px dashed var(--border-color);
-    border-radius: 12px;
-    padding: 30px 10px;
-    text-align: center;
-    transition: all 0.3s ease;
+button {
+    font-family: inherit;
     cursor: pointer;
 }
 
-.drop-zone:hover, .drop-zone.dragover {
-    border-color: var(--primary-color);
-    background: #f0f7ff;
+input {
+    font-family: inherit;
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 4px;
+}
+
+/* ==========================================
+   LAYOUT
+   ========================================== */
+
+.app-container {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ==========================================
+   SIDEBAR
+   ========================================== */
+
+.sidebar {
+    width: 300px;
+    flex-shrink: 0;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    gap: 24px;
+    overflow-y: auto;
+}
+
+.sidebar-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.sidebar-title .mark {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--bg-app);
+    background: var(--accent);
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
+}
+
+/* The full brand name is longer than a two-word title, so it's sized
+   down and allowed to wrap onto a second line inside the fixed-width
+   sidebar rather than overflowing or forcing the sidebar wider. */
+.sidebar-title h1 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}
+
+/* ---- Drop zone / upload ---- */
+
+.drop-zone {
+    position: relative;
+    border: 1.5px dashed var(--border-strong);
+    border-radius: var(--radius);
+    padding: 24px 16px;
+    text-align: center;
+    background: var(--bg-panel);
+    transition: border-color 0.15s ease, background 0.15s ease;
+    cursor: pointer;
+}
+
+.drop-zone:hover {
+    border-color: var(--accent);
+}
+
+.drop-zone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-dim);
 }
 
 .drop-zone-content h3 {
-    font-size: 1rem;
-    color: var(--primary-color);
+    margin: 0 0 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.drop-zone-content p {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.drop-zone-formats {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 4px 8px;
+}
+
+/* Hidden by JS (fileInput.style.display = "none"); kept as a CSS
+   fallback in case JS hasn't run yet or is disabled. */
+#fileInput {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
 }
 
 .upload-status {
-    margin-top: 15px;
+    margin-top: 12px;
+    min-height: 20px;
+}
+
+#fileName {
+    margin: 0 0 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: left;
 }
 
 .progress-bar-container {
     width: 100%;
-    background: #eee;
-    height: 6px;
-    border-radius: 3px;
+    height: 4px;
+    background: var(--bg-elevated);
+    border-radius: 2px;
     overflow: hidden;
 }
 
 .progress-bar {
-    width: 0%;
     height: 100%;
-    background: var(--primary-color);
-    transition: width 0.4s ease;
+    width: 0%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+/* ---- Document list ---- */
+
+.document-list-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.document-list-container h2 {
+    margin: 0 0 10px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+.documents {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
 }
 
 .document-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 10px;
-    background: #fdfdfd;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    margin-bottom: 8px;
-    font-size: 0.9rem;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.doc-name {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .delete-btn {
+    flex-shrink: 0;
     background: transparent;
     border: none;
-    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 4px;
+    border-radius: 4px;
     opacity: 0.6;
+    transition: opacity 0.15s ease, background 0.15s ease;
 }
 
-.delete-btn:hover { opacity: 1; }
-
-/* =========================================
-   MAIN CHAT AREA
-   ========================================= */
-.main-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background: white;
+.delete-btn:hover {
+    opacity: 1;
+    background: var(--bg-elevated);
 }
 
-.chat-header {
-    padding: 15px 25px;
-    border-bottom: 1px solid var(--border-color);
-    font-weight: bold;
-    font-size: 1.1rem;
-}
-
-.chat-container {
-    flex: 1;
-    padding: 20px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.message {
-    max-width: 80%;
-    padding: 12px 18px;
-    border-radius: 18px;
-    line-height: 1.5;
-    font-size: 0.95rem;
-}
-
-.message.user {
-    align-self: flex-end;
-    background: var(--user-bubble);
-    color: white;
-    border-bottom-right-radius: 4px;
-}
-
-.message.ai {
-    align-self: flex-start;
-    background: var(--ai-bubble);
-    color: var(--text-main);
-    border-bottom-left-radius: 4px;
-}
-
-.message.system-alert {
-    align-self: center;
-    max-width: 95%;
-    background: #fff;
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-}
-
-/* =========================================
-   REQUIREMENT MATRIX TABLE
-   ========================================= */
-.table-wrapper {
-    margin-top: 15px;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid var(--border-color);
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: white;
-}
-
-th, td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid var(--border-color);
-}
-
-thead {
-    background-color: #f1f3f5;
-    font-weight: bold;
-}
-
-tr:last-child td { border-bottom: none; }
-
-.action-btn {
-    padding: 8px 16px;
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 500;
-    transition: background 0.2s;
-}
-
-.action-btn:hover { background: #0056b3; }
-
-/* =========================================
-   INPUT AREA
-   ========================================= */
-.input-area {
-    padding: 20px;
-    display: flex;
-    gap: 10px;
-    border-top: 1px solid var(--border-color);
-}
-
-#question {
-    flex: 1;
-    padding: 12px 15px;
-    border: 1px solid var(--border-color);
-    border-radius: 25px;
-    outline: none;
-}
-
-#question:focus { border-color: var(--primary-color); }
-
-#sendBtn {
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: transform 0.2s;
-}
-
-#sendBtn:hover { transform: scale(1.05); }/* =========================================
-   CORE STYLES
-   ========================================= */
-:root {
-    --primary-color: #007bff;
-    --bg-color: #f8f9fa;
-    --sidebar-bg: #ffffff;
-    --border-color: #dee2e6;
-    --text-main: #333;
-    --text-muted: #6c757d;
-    --ai-bubble: #e9ecef;
-    --user-bubble: #007bff;
-}
-
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-body {
-    background-color: var(--bg-color);
-    color: var(--text-main);
-    height: 100vh;
-    display: flex;
-}
-
-.app-container {
-    display: flex;
-    width: 100%;
-    height: 100%;
-}
-
-/* =========================================
-   SIDEBAR & UPLOAD ZONE
-   ========================================= */
-.sidebar {
-    width: 320px;
-    background: var(--sidebar-bg);
-    border-right: 1px solid var(--border-color);
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-}
-
-.sidebar h2 {
-    font-size: 1.2rem;
-    margin-bottom: 20px;
-}
-
-.drop-zone {
-    border: 2px dashed var(--border-color);
-    border-radius: 12px;
-    padding: 30px 10px;
+.empty-state,
+.error-state {
+    font-size: 12.5px;
+    color: var(--text-muted);
     text-align: center;
-    transition: all 0.3s ease;
-    cursor: pointer;
+    padding: 16px 8px;
 }
 
-.drop-zone:hover, .drop-zone.dragover {
-    border-color: var(--primary-color);
-    background: #f0f7ff;
+.error-state {
+    color: var(--danger);
 }
 
-.drop-zone-content h3 {
-    font-size: 1rem;
-    color: var(--primary-color);
-}
+/* ==========================================
+   MAIN CONTENT / CHAT
+   ========================================== */
 
-.upload-status {
-    margin-top: 15px;
-}
-
-.progress-bar-container {
-    width: 100%;
-    background: #eee;
-    height: 6px;
-    border-radius: 3px;
-    overflow: hidden;
-}
-
-.progress-bar {
-    width: 0%;
-    height: 100%;
-    background: var(--primary-color);
-    transition: width 0.4s ease;
-}
-
-.document-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-    background: #fdfdfd;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    margin-bottom: 8px;
-    font-size: 0.9rem;
-}
-
-.delete-btn {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    opacity: 0.6;
-}
-
-.delete-btn:hover { opacity: 1; }
-
-/* =========================================
-   MAIN CHAT AREA
-   ========================================= */
 .main-content {
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: white;
+    min-width: 0;
 }
 
 .chat-header {
-    padding: 15px 25px;
-    border-bottom: 1px solid var(--border-color);
-    font-weight: bold;
-    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.chat-header h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.chat-header-status {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--success);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.chat-header-status::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+    display: inline-block;
 }
 
 .chat-container {
     flex: 1;
-    padding: 20px;
     overflow-y: auto;
+    padding: 24px;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 14px;
 }
+
+/* ---- Messages ---- */
 
 .message {
-    max-width: 80%;
-    padding: 12px 18px;
-    border-radius: 18px;
-    line-height: 1.5;
-    font-size: 0.95rem;
-}
-
-.message.user {
-    align-self: flex-end;
-    background: var(--user-bubble);
-    color: white;
-    border-bottom-right-radius: 4px;
-}
-
-.message.ai {
-    align-self: flex-start;
-    background: var(--ai-bubble);
-    color: var(--text-main);
-    border-bottom-left-radius: 4px;
-}
-
-.message.system-alert {
-    align-self: center;
-    max-width: 95%;
-    background: #fff;
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-}
-
-/* =========================================
-   REQUIREMENT MATRIX TABLE
-   ========================================= */
-.table-wrapper {
-    margin-top: 15px;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid var(--border-color);
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: white;
-}
-
-th, td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid var(--border-color);
-}
-
-thead {
-    background-color: #f1f3f5;
-    font-weight: bold;
-}
-
-tr:last-child td { border-bottom: none; }
-
-.action-btn {
-    padding: 8px 16px;
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 500;
-    transition: background 0.2s;
-}
-
-.action-btn:hover { background: #0056b3; }
-
-/* =========================================
-   INPUT AREA
-   ========================================= */
-.input-area {
-    padding: 20px;
-    display: flex;
-    gap: 10px;
-    border-top: 1px solid var(--border-color);
-}
-
-#question {
-    flex: 1;
-    padding: 12px 15px;
-    border: 1px solid var(--border-color);
-    border-radius: 25px;
-    outline: none;
-}
-
-#question:focus { border-color: var(--primary-color); }
-
-#sendBtn {
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: transform 0.2s;
-}
-
-#sendBtn:hover { transform: scale(1.05); }
-
-/* Table Styles for AI Chat */
-.message.ai table {
-    border-collapse: collapse;
-    width: 100%;
-    margin: 15px 0;
-    font-size: 0.9em;
-    background-color: #ffffff;
-}
-
-.message.ai th, 
-.message.ai td {
-    border: 1px solid #dddddd;
-    padding: 10px 12px;
-    text-align: left;
-}
-
-.message.ai th {
-    background-color: #f4f6f8;
-    font-weight: bold;
-    color: #333;
-}
-
-.message.ai tr:nth-child(even) {
-    background-color: #fdfdfd;
-}
-/* --- Fix for Overflowing Text --- */
-
-/* 1. Force long text strings to break instead of overflowing */
-.message {
-    overflow-wrap: break-word;
+    max-width: 72%;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 13.5px;
+    line-height: 1.55;
     word-wrap: break-word;
-    word-break: break-word;
+}
+
+.message.user {
+    align-self: flex-end;
+    background: var(--accent);
+    color: #fff;
+    border-bottom-right-radius: 3px;
+}
+
+.message.ai {
+    align-self: flex-start;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-bottom-left-radius: 3px;
+}
+
+.message.system {
+    align-self: center;
+    max-width: 90%;
+    background: transparent;
+    border: 1px dashed var(--border-strong);
+    color: var(--text-secondary);
+    text-align: center;
+    font-size: 12.5px;
+}
+
+.message.system-alert {
+    align-self: stretch;
     max-width: 100%;
+    background: var(--bg-panel);
+    border: 1px solid var(--warning);
+}
+
+.message.thinking {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.message.error {
+    background: rgba(255, 77, 77, 0.08);
+    border: 1px solid var(--danger);
+    color: var(--danger);
+}
+
+.message.system-alert h3 {
+    margin: 0 0 8px;
+    font-size: 14px;
+}
+
+.message .sources {
+    margin-top: 10px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+}
+
+/* ---- Conflict report table ---- */
+
+.table-wrapper {
+    margin-top: 10px;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.table-wrapper table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+}
+
+.table-wrapper th,
+.table-wrapper td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+}
+
+.table-wrapper th {
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+}
+
+.table-wrapper tr:last-child td {
+    border-bottom: none;
+}
+
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 10px 0;
+    padding: 7px 14px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 12.5px;
+    font-weight: 500;
+    transition: background 0.15s ease;
+}
+
+.action-btn:hover {
+    background: #3d75e0;
+}
+
+/* ---- Input area ---- */
+
+.input-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-sidebar);
+    flex-shrink: 0;
+}
+
+#question {
+    flex: 1;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 10px 16px;
+    color: var(--text-primary);
+    font-size: 13.5px;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+#question:focus {
+    border-color: var(--accent);
+}
+
+#question:disabled {
+    opacity: 0.6;
+}
+
+#sendBtn {
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+#sendBtn:hover {
+    background: #3d75e0;
+}
+
+#sendBtn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+
+@media (max-width: 860px) {
+    .app-container {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        max-height: 40vh;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .message {
+        max-width: 88%;
+    }
 }
