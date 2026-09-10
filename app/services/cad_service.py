@@ -2,8 +2,11 @@ import ezdxf
 import subprocess
 import os
 
-# Path to ODA File Converter
-ODA_PATH = r"C:\Jaya\ODA\ODAFileConverter 27.1.0\ODAFileConverter.exe"
+# FIX 1: Removed the hardcoded ODA_PATH constant that lived here.
+# It's now sourced from config.py (which reads it from .env), so the
+# same code runs correctly on any machine as long as .env is set up
+# for that machine — no more editing source code per-developer.
+from app.config import ODA_PATH
 
 # -------------------------
 # Step 1: DWG → DXF Conversion
@@ -12,8 +15,16 @@ def convert_dwg_to_dxf(dwg_path: str, output_dir: str) -> str:
     """
     Convert DWG file to DXF using ODA File Converter.
     """
+    # FIX #1: New explicit check — if ODA_PATH was never set in .env,
+    # fail with a clear, actionable message instead of a confusing
+    # FileNotFoundError against an empty string path.
+    if not ODA_PATH:
+        raise RuntimeError(
+            "ODA_PATH is not set. Add ODA_PATH=<path to ODAFileConverter.exe> "
+            "to your .env file to enable DWG/DXF conversion."
+        )
     if not os.path.exists(ODA_PATH):
-        raise FileNotFoundError("ODA File Converter not found.")
+        raise FileNotFoundError(f"ODA File Converter not found at: {ODA_PATH}")
     if not os.path.exists(dwg_path):
         raise FileNotFoundError("DWG file not found.")
     if not os.path.exists(output_dir):
