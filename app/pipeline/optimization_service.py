@@ -2,12 +2,12 @@ import asyncio
 import json
 import logging
 import numpy as np
+from functools import lru_cache
 from sentence_transformers import CrossEncoder
 from typing import List, Dict, Tuple
 
-# Import your existing services
 from app.brain.vector_service import vector_store
-from app.brain.embedding_service import embed_query  
+from app.brain.embedding_service import embed_query
 
 logger = logging.getLogger(__name__)
 
@@ -15,26 +15,31 @@ logger = logging.getLogger(__name__)
 # PART 1: CORE RAG LOGIC (Retrieval & Reranking)
 # ==========================================
 
-# Load the Reranker model
-logger.info("Loading Cross-Encoder Reranker model...")
-reranker = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+_reranker = None  # lazy-loaded, not loaded at import time
+
+
+def _get_reranker() -> CrossEncoder:
+    """Loads the cross-encoder once, on first use, so a slow/failed
+    model download can't block app startup or crash the whole import chain."""
+    global _reranker
+    if _reranker is None:
+        logger.info("Loading Cross-Encoder Reranker model...")
+        _reranker = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+    return _reranker
+
 
 async def retrieve_and_rerank(query: str, initial_k: int = 20, final_k: int = 5) -> Tuple[List[Dict], float]:
     """
     1. Performs Hybrid Search (Vector + Keyword) using your VectorService
-    2. Reranks the results
+    2. Reranks the results with a cross-encoder, off the event loop
     3. Calculates a Confidence Score
     """
     logger.info(f"Starting optimized retrieval for query: '{query}'")
 
-    # 1. HYBRID SEARCH (Cast a wide net using your unified method)
     try:
-        # First, convert the text query into numbers (embedding)
         query_embedding = await embed_query(query)
-        
-        # Now pass both the text and the embedding to your vector store
         all_chunks = vector_store.hybrid_search(
-            query=query, 
+            query=query,
             query_embedding=query_embedding,  # type: ignore
             top_k=initial_k
         )
@@ -45,43 +50,49 @@ async def retrieve_and_rerank(query: str, initial_k: int = 20, final_k: int = 5)
     if not all_chunks:
         return [], 0.0
 
-    # 2. RERANKING (The Judge)
-    # Prepare pairs: [[query, chunk_text_1], [query, chunk_text_2], ...]
     pairs = [[query, chunk['text']] for chunk in all_chunks]
-    
-    # Get scores from the ML model
-    scores = reranker.predict(pairs)
-    
-    # Attach scores to the chunks
+
+    try:
+        reranker = _get_reranker()
+        # Offload the blocking, CPU-bound predict() call to a thread so it
+        # doesn't stall the event loop for every other concurrent request.
+        loop = asyncio.get_event_loop()
+        scores = await loop.run_in_executor(None, reranker.predict, pairs)
+    except Exception as e:
+        # Degrade gracefully instead of failing the whole query if the
+        # reranker is unavailable (e.g. model failed to load).
+        logger.error(f"Reranking failed, falling back to unranked hybrid results: {e}")
+        return all_chunks[:final_k], 0.5
+
     for i, chunk in enumerate(all_chunks):
         chunk['rerank_score'] = float(scores[i])
-    
-    # Sort by the new score (highest first) and keep only the top `final_k`
+
     reranked_chunks = sorted(all_chunks, key=lambda x: x['rerank_score'], reverse=True)[:final_k]
 
-    # 3. CONFIDENCE SCORE (0.0 to 1.0)
     avg_score = np.mean([c['rerank_score'] for c in reranked_chunks])
     confidence = float(1 / (1 + np.exp(-avg_score)))
 
     logger.info(f"Reranking complete. Confidence: {confidence:.2f}")
     return reranked_chunks, round(confidence, 2)
 
-def compress_context(chunks: list, max_tokens: int = 3000) -> str:
+
+def compress_context(chunks: list, max_chars: int = 12000) -> str:
     """
-    Context Compression: Takes the top reranked chunks and joins them.
-    If the combined text is too large, it smartly trims the least important 
-    chunks from the bottom up.
+    Context Compression: Takes the top reranked chunks and joins them,
+    up to a character budget (renamed from max_tokens — the comparison
+    below was always character-based, not token-based; aligned the
+    default with config.MAX_CONTEXT_CHARS for consistency).
     """
     compressed_text = ""
-    
+
     for chunk in chunks:
-        if len(compressed_text) + len(chunk['text']) > max_tokens:
+        if len(compressed_text) + len(chunk['text']) > max_chars:
             logger.info("Context compression triggered: Trimming excess chunk data.")
             break
-            
+
         compressed_text += f"--- Source: {chunk.get('metadata', {}).get('source', 'Unknown')} ---\n"
         compressed_text += chunk['text'] + "\n\n"
-        
+
     return compressed_text
 
 
@@ -94,29 +105,15 @@ async def run_optimization_test():
     Simulates a user asking a complex engineering question to prove
     the Reranker and Hybrid search are working correctly.
     """
-    # Imported here to avoid circular imports at the top of the file
-    from app.pipeline.query_pipeline import ask_rag
+    # 🔧 FIX: the actual function is ask_rfq, not ask_rag — this import
+    # was still broken even after the "optimization_used" metrics fix.
+    from app.pipeline.query_pipeline import ask_rfq
 
     print("🚀 Initializing Optimized RAG Pipeline Test...\n")
-    
-    # A specific question that requires good retrieval
+
     test_question = "What are the specific payment terms and fire pump capacities required for this project?"
-    
-    # Run the pipeline
-    result = await ask_rag(question=test_question, top_k=5)
-    
-    # Format the output exactly how Knowforth Tech wants it
-    #
-    # NOTE (logic fix): ask_rag()'s response dict never contains an
-    # "optimization_used" key — its _build_response() only ever returns
-    # question/answer/sources/chunks_used/confidence/context_preview/error.
-    # `result.get("optimization_used", [])` was therefore always an empty
-    # list, no matter what actually ran, defeating the purpose of this
-    # test script (proving the optimizations work, for a screenshot).
-    # Fixed by describing what THIS script's own pipeline stages actually
-    # do — hybrid retrieval + cross-encoder reranking above, and context
-    # compression via compress_context() — instead of reading a key the
-    # pipeline was never going to provide.
+    result = await ask_rfq(question=test_question, top_k=5)
+
     final_output = {
         "Answer": result.get("answer"),
         "Sources": result.get("sources", []),
@@ -130,11 +127,10 @@ async def run_optimization_test():
             "Chunks_Compressed": result.get("chunks_used", 0)
         }
     }
-    
-    # Print it beautifully to the terminal so you can screenshot it
+
     print(json.dumps(final_output, indent=4))
-    
     print("\n✅ Test Complete. Take a screenshot of the JSON above for your submission!")
+
 
 if __name__ == "__main__":
     asyncio.run(run_optimization_test())
