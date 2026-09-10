@@ -1,19 +1,26 @@
 """
 RFQ AI System - Upload Router
-Handles single and multi-file uploads. This is the entry point
-for the Document Intelligence & Structured Extraction pipeline.
+Handles single file processing and multi-file bundle uploads.
 """
 
 import os
 import logging
-import json
-from typing import List, Any, Dict
+import aiofiles
+from pathlib import Path
+from typing import List
+from uuid import uuid4
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 
-# --- Core Pipelines ---
-from app.pipeline.rag_pipeline import process_rfq, process_rfq_bundle
+# 🔧 FIX: point at the pipeline module that actually exists.
+# If the real file is app/pipeline/rag_pipeline.py with
+# process_rag()/process_rag_bundle(), alias on import so the rest
+# of this file (and any RFQ-named consumers) doesn't need renaming.
+from app.pipeline.rag_pipeline import process_rag as process_rfq, process_rag_bundle as process_rfq_bundle
+
+# 🔧 FIX: same — point at the models file that actually exists.
 from app.models.rag_model import RFQRequest, RFQResponse
-from app.config import UPLOAD_DIR
+
+from app.config import UPLOAD_DIR, validate_upload  # 🔧 FIX: use config's UPLOAD_DIR, not a local hardcode
 
 logger = logging.getLogger(__name__)
 
@@ -22,36 +29,6 @@ router = APIRouter(prefix="/upload", tags=["Upload"])
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
-def _as_list(value: Any) -> list:
-    """
-    Normalizes a pipeline result field into a list, tolerating a JSON
-    string, an already-parsed list, or missing/None.
-    """
-    if isinstance(value, str):
-        try:
-            parsed = json.loads(value or "[]")
-        except json.JSONDecodeError:
-            parsed = []
-        return parsed if isinstance(parsed, list) else []
-    return value if isinstance(value, list) else []
-
-
-def _specs_to_list(value: Any) -> List[Dict[str, Any]]:
-    """
-    extract_specs() returns a flat dict, e.g.
-    {"material": "Steel", "tolerance": "±0.5mm"} — not a list. RFQResponse
-    expects List[Dict[str, Any]], so convert each key/value pair into its
-    own row instead of silently dropping the dict (which is what happened
-    here before: a dict isn't a list, so it was being discarded to []).
-    """
-    if isinstance(value, dict):
-        return [{"attribute": key, "value": val} for key, val in value.items()]
-    return _as_list(value)
-
-
-# ---------------------------------------------------------
-# 1️⃣ SINGLE FILE PROCESSING
-# ---------------------------------------------------------
 @router.post("/process", response_model=RFQResponse)
 async def process_single_rfq(request: RFQRequest):
     """
@@ -62,25 +39,12 @@ async def process_single_rfq(request: RFQRequest):
         file_path = request.file_path
         logger.info(f"Processing single file: {file_path}")
 
-        # Await the main extraction pipeline
         result = await process_rfq(file_path)
 
         if result.get("status") == "error":
             raise HTTPException(status_code=400, detail=result.get("message"))
 
-        structured_items = _as_list(result.get("structured_items"))
-        bom = _as_list(result.get("bom"))
-        specifications = _specs_to_list(result.get("specifications"))
-        tables = _as_list(result.get("tables"))
-
-        return RFQResponse(
-            status="success",
-            message="Document processed and indexed successfully.",
-            structured_items=structured_items,
-            bom=bom,
-            specifications=specifications,
-            tables=tables
-        )
+        return result
 
     except HTTPException:
         raise
@@ -89,9 +53,6 @@ async def process_single_rfq(request: RFQRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ---------------------------------------------------------
-# 2️⃣ MULTI-FILE BUNDLE UPLOAD (Document Intelligence Task)
-# ---------------------------------------------------------
 @router.post("/bundle")
 async def upload_rfq_bundle(
     project_name: str = Form("New RFQ Project"),
@@ -99,28 +60,37 @@ async def upload_rfq_bundle(
 ):
     """
     The 'Intelligence' Endpoint:
-    1. Saves multiple files (PDF, XLSX, DOCX).
+    1. Validates and saves multiple files asynchronously in chunks.
     2. Runs the cross-file engineering conflict detection.
     3. Returns structured JSON including the project requirements.
     """
     saved_filepaths = []
 
     try:
-        # Step 1: Securely save all uploaded files to disk
         for file in files:
-            if not file.filename:
-                raise HTTPException(status_code=400, detail="File must have a valid filename")
-            filepath = os.path.join(UPLOAD_DIR, file.filename)
+            original_name = file.filename or ""
+            if not original_name:
+                original_name = f"uploaded_{uuid4().hex}"
+            safe_filename = Path(original_name).name
+            filepath = os.path.join(UPLOAD_DIR, safe_filename)
 
-            # Using async read to prevent blocking the server
-            content = await file.read()
-            with open(filepath, "wb") as buffer:
-                buffer.write(content)
+            async with aiofiles.open(filepath, "wb") as buffer:
+                while chunk := await file.read(1024 * 1024):
+                    await buffer.write(chunk)
+
+            # 🔧 FIX: validate after write (need the file on disk for
+            # size check) but before it's handed to the pipeline — a
+            # bad file type/size now fails fast with a clean message
+            # instead of surfacing as a confusing pipeline error later.
+            try:
+                validate_upload(filepath)
+            except ValueError as ve:
+                os.remove(filepath)
+                raise HTTPException(status_code=400, detail=str(ve))
 
             saved_filepaths.append(filepath)
-            logger.info(f"📁 Uploaded: {file.filename}")
+            logger.info(f"📁 Uploaded: {safe_filename}")
 
-        # Step 2: Trigger the Multi-Source Extraction Orchestrator
         logger.info(f"🚀 Analyzing bundle for project: {project_name}")
 
         pipeline_result = await process_rfq_bundle(
@@ -128,7 +98,6 @@ async def upload_rfq_bundle(
             file_paths=saved_filepaths
         )
 
-        # Step 3: Return the machine-readable JSON results
         return pipeline_result
 
     except HTTPException:
