@@ -15,7 +15,7 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 # If the real file is app/pipeline/rag_pipeline.py with
 # process_rag()/process_rag_bundle(), alias on import so the rest
 # of this file (and any RFQ-named consumers) doesn't need renaming.
-from app.pipeline.rag_pipeline import process_rag as process_rfq, process_rag_bundle as process_rfq_bundle
+from app.pipeline.rag_pipeline import process_rag, process_rag_bundle
 
 # 🔧 FIX: same — point at the models file that actually exists.
 from app.models.rag_model import RFQRequest, RFQResponse
@@ -39,7 +39,7 @@ async def process_single_rfq(request: RFQRequest):
         file_path = request.file_path
         logger.info(f"Processing single file: {file_path}")
 
-        result = await process_rfq(file_path)
+        result = await process_rag(file_path)
 
         if result.get("status") == "error":
             raise HTTPException(status_code=400, detail=result.get("message"))
@@ -93,7 +93,7 @@ async def upload_rfq_bundle(
 
         logger.info(f"🚀 Analyzing bundle for project: {project_name}")
 
-        pipeline_result = await process_rfq_bundle(
+        pipeline_result = await process_rag_bundle(
             project_name=project_name,
             file_paths=saved_filepaths
         )
