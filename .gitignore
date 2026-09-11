@@ -1,4 +1,45 @@
-venv/ 
-__pycache__/ 
-*.pyc 
-.env 
+# ==========================================
+# Python
+# ==========================================
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# ==========================================
+# Environment / secrets
+# ==========================================
+.env
+.env.*
+!.env.example
+
+# ==========================================
+# App runtime output — regenerated on every
+# run, never source of truth. See config.py
+# for UPLOAD_DIR / SAVE_DIR / DWG_TEMP_DIR
+# defaults, and rag_pipeline.py for deliverables.
+# ==========================================
+uploads/
+vectorstore/
+deliverables/
+temp_dxf/
+
+# ==========================================
+# OS / editor
+# ==========================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# ==========================================
+# Logs
+# ==========================================
+*.log
