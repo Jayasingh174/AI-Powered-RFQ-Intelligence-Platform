@@ -30,6 +30,7 @@ app/
 │   ├── rag_pipeline.py      # Single-file & bundle processing orchestration
 │   ├── query_pipeline.py    # Retrieval → rerank → context → LLM answer
 │   └── optimization_service.py  # Hybrid retrieval, cross-encoder reranking, context compression
+│   └── intelligence_service.py  # LLM-based structured JSON extraction
 ├── brain/
 │   ├── vector_service.py    # FAISS + BM25 hybrid vector store
 │   ├── embedding_service.py # OpenAI embeddings (with retry)
@@ -47,7 +48,6 @@ app/
 │   ├── csv_service.py       # CSV → structured text
 │   ├── excel_service.py     # Excel BOQ parsing
 │   ├── cad_service.py       # DWG→DXF conversion, entity parsing
-│   └── intelligence_service.py  # LLM-based structured JSON extraction
 ├── models/                  # Pydantic request/response schemas
 └── web/                     # Static frontend (HTML/CSS/JS)
 ```
